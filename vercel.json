@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run build --workspace=@clarity/web",
+  "outputDirectory": "apps/web/dist",
+  "framework": null,
+  "functions": {
+    "api/[...path].ts": { "maxDuration": 30 }
+  }
+}

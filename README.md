@@ -21,7 +21,7 @@ The database integration was not executed in this workspace because no local Pos
 
 Open `http://localhost:5173`. For production, place the API behind HTTPS, set `COOKIE_SECURE=true`, use managed Postgres with PITR, and run migrations in CI/CD.
 
-`docker-compose.production.yml` is a reference API/web deployment which connects to Supabase. Configure an external Caddy/Nginx or managed load balancer for HTTPS.
+`docker-compose.production.yml` is a reference API/web deployment which connects to Supabase. Configure an external Caddy/Nginx or managed load balancer for HTTPS. The root [vercel.json](vercel.json) can instead deploy the UI and secure `/api` function on the same Vercel domain; set the server-only database/session variables in Vercel before going live.
 
 ## GitHub Pages preview
 

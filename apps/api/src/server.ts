@@ -29,4 +29,8 @@ const saleSchema=z.object({customerId:z.string().uuid().optional(),locationId:z.
 app.post('/api/v1/invoices',{preHandler:requirePermission('invoices.create')},async(request,reply)=>{const key=request.headers['idempotency-key'];if(typeof key!=='string'||key.length<16||key.length>200)throw new AppError(400,'A 16–200 character Idempotency-Key header is required.','IDEMPOTENCY_KEY_REQUIRED');const output=await transaction(db=>postSale(db,request.actor!,saleSchema.parse(request.body),key,{ip:clientIp(request),requestId:request.id}));return reply.status(201).send({data:output});});
 app.get('/api/v1/audit',{preHandler:requirePermission('audit.read')},async request=>{const {limit='50'}=request.query as {limit?:string};const result=await pool.query(`SELECT id,occurred_at,actor_login,actor_roles,action,entity_type,entity_id,reason,previous_hash,event_hash FROM audit_logs ORDER BY occurred_at DESC LIMIT $1`,[Math.min(Math.max(Number(limit)||50,1),200)]);return {data:result.rows};});
 app.get('/api/v1/audit/verify',{preHandler:requirePermission('audit.read')},async()=>{const {rows}=await pool.query(`SELECT canonical_payload,previous_hash,event_hash FROM audit_logs ORDER BY sequence_no`);let prior='0'.repeat(64);for(let index=0;index<rows.length;index++){const row=rows[index];if(row.previous_hash!==prior||createHash('sha256').update(prior+row.canonical_payload).digest('hex')!==row.event_hash)return {valid:false,failedAt:index+1};prior=row.event_hash}const head=await pool.query(`SELECT last_hash FROM audit_chain_heads WHERE scope='global'`);return {valid:head.rows[0]?.last_hash===prior,entries:rows.length};});
-await app.listen({port:config.PORT,host:'0.0.0.0'});
+export { app };
+
+// Vercel imports the Fastify instance through api/[...path].ts. Local and
+// container deployments retain the conventional standalone HTTP listener.
+if (!process.env.VERCEL) await app.listen({port:config.PORT,host:'0.0.0.0'});
