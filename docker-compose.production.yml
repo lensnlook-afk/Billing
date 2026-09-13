@@ -1,0 +1,19 @@
+# Production reference deployment. Put secrets in your cloud secret manager, not this file.
+services:
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set in secret manager}
+      SESSION_SECRET: ${SESSION_SECRET:?set in secret manager}
+      WEB_ORIGIN: ${WEB_ORIGIN:?set to public https URL}
+      COOKIE_SECURE: "true"
+      DATABASE_SSL: "true"
+      PORT: "3001"
+    command: ["sh", "-c", "node apps/api/dist/migrate.js && node apps/api/dist/server.js"]
+    networks: [private]
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    depends_on: [api]
+    ports: ["80:80"]
+    networks: [private]
+networks: { private: {} }

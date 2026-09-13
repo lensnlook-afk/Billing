@@ -1,0 +1,7 @@
+import { pool, transaction } from './lib/db.js'; import { passwordHash } from './lib/auth.js'; import { audit } from './lib/audit.js';
+const accounts=[
+  {username:process.env.BOOTSTRAP_ADMIN_USERNAME?.trim().toLowerCase(),password:process.env.BOOTSTRAP_ADMIN_PASSWORD,displayName:'Admin',role:'OWNER'},
+  {username:process.env.BOOTSTRAP_EMPLOYEE_USERNAME?.trim().toLowerCase(),password:process.env.BOOTSTRAP_EMPLOYEE_PASSWORD,displayName:'Employee',role:'CASHIER'},
+];
+if(accounts.some(account=>!account.username||!account.password||account.password.length<5))throw new Error('Set both Admin and Employee bootstrap usernames and passwords in environment secrets.');
+await transaction(async db => { for(const account of accounts){const existing=await db.query('SELECT id FROM users WHERE login_name=$1',[account.username]);if(existing.rowCount)throw new Error(`Account '${account.username}' already exists.`);const user=await db.query('INSERT INTO users(login_name,display_name,password_hash) VALUES($1,$2,$3) RETURNING id',[account.username,account.displayName,await passwordHash(account.password!)]);await db.query('INSERT INTO user_roles(user_id,role_id) SELECT $1,id FROM roles WHERE code=$2',[user.rows[0].id,account.role]);await audit(db,null,{action:'BOOTSTRAP_USER_CREATED',entityType:'user',entityId:user.rows[0].id,newValue:{loginName:account.username,role:account.role}});}}); console.log('Admin and Employee created. Clear both bootstrap passwords now.'); await pool.end();

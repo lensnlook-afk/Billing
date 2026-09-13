@@ -1,0 +1,2 @@
+import { describe, expect, it } from 'vitest'; import { fromPaise, multiply, toPaise } from '../src/lib/money.js';
+describe('money', () => { it('does not use floating point arithmetic', () => { expect(fromPaise(toPaise('0.10') + toPaise('0.20'))).toBe('0.30'); expect(fromPaise(multiply(toPaise('4999.99'), 2))).toBe('9999.98'); }); it('rejects unsafe values', () => expect(() => toPaise('1.999')).toThrow()); });

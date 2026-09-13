@@ -1,0 +1,8 @@
+# Local CLI metadata only. Do not put a production project reference or secrets here.
+project_id = "clarity-optical"
+
+[api]
+enabled = false
+
+[db]
+major_version = 16
