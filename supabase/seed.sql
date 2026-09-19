@@ -1,0 +1,3 @@
+-- No seed data.
+-- All products, brands, categories, customers, and inventory
+-- are entered by the client through the application.

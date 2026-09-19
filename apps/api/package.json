@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx --env-file=../../.env src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "lint": "tsc --noEmit",
@@ -16,6 +16,7 @@
     "@fastify/cors": "^11.0.0",
     "@fastify/helmet": "^13.0.1",
     "@node-rs/argon2": "^2.0.2",
+    "dotenv": "^17.4.2",
     "fastify": "^5.2.1",
     "pg": "^8.13.1",
     "pino": "^9.5.0",

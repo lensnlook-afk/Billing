@@ -5,4 +5,4 @@ project_id = "clarity-optical"
 enabled = false
 
 [db]
-major_version = 16
+major_version = 17
