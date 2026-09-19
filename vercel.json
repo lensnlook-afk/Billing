@@ -3,6 +3,20 @@
   "buildCommand": "npm run build --workspace=@clarity/web",
   "outputDirectory": "apps/web/dist",
   "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/healthz",
+      "destination": "/api/healthz"
+    },
+    {
+      "source": "/readyz",
+      "destination": "/api/readyz"
+    }
+  ],
   "functions": {
     "api/[...path].ts": {
       "maxDuration": 30
