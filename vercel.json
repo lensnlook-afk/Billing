@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm install --workspaces",
-  "buildCommand": "npm run build --workspace=@clarity/web",
+  "installCommand": "npm install && npm install --prefix apps/web",
+  "buildCommand": "npm run build --prefix apps/web",
   "outputDirectory": "apps/web/dist",
   "framework": null,
   "functions": {

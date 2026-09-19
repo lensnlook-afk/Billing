@@ -2,13 +2,18 @@
   "name": "clarity-optical",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace=@clarity/web",
     "dev:api": "npm run dev --workspace=@clarity/api",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspace=@clarity/api",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "build:web": "npm install --prefix apps/web && npm run build --prefix apps/web"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }
