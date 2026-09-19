@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type StoreLocation = { id: string; code: string; name: string };
+// ─── Types ───────────────────────────────────────────────────────────────────
+interface StoreLocation { id: string; code: string; name: string }
 
-type InventoryProduct = {
+interface StoreStock { store_id: string; store_name: string; quantity: number; available: number }
+
+interface InventoryProduct {
   product_id: string;
   name: string;
   sku: string;
@@ -16,39 +18,45 @@ type InventoryProduct = {
   available: number;
   reserved: number;
   damaged: number;
-  locations: { store_id: string; store_name: string; quantity: number; available: number }[] | null;
-};
+  locations: StoreStock[] | null;
+}
 
-// ─── API helpers ──────────────────────────────────────────────────────────────
-const req = async <T>(path: string, init?: RequestInit): Promise<T> => {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`http://localhost:3001${path}`, {
     credentials: 'include',
-    headers: { 'content-type': 'application/json', ...init?.headers },
+    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
   });
   const body = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
-  if (!res.ok) throw new Error(body?.error?.message ?? 'Request failed');
-  return body;
+  if (!res.ok) throw new Error((body as { error?: { message?: string } })?.error?.message ?? 'Request failed');
+  return body as T;
+}
+
+function rupees(v: string | number) {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v));
+}
+
+// ─── Type badge ──────────────────────────────────────────────────────────────
+const TYPE_COLORS: { [key: string]: string } = {
+  FRAME:       '#dbeafe|#1d4ed8',
+  LENS:        '#dcfce7|#166534',
+  CONTACT_LENS:'#fef9c3|#854d0e',
+  ACCESSORY:   '#f3e8ff|#6b21a8',
+  SERVICE:     '#ffedd5|#9a3412',
+  OTHER:       '#f1f5f9|#475569',
 };
 
-const rupees = (v: string | number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v));
-
-// ─── Product type badge ───────────────────────────────────────────────────────
-const TYPE_COLORS: Record<string, string> = {
-  FRAME: '#dbeafe:#1d4ed8',
-  LENS: '#dcfce7:#166534',
-  CONTACT_LENS: '#fef9c3:#854d0e',
-  ACCESSORY: '#f3e8ff:#6b21a8',
-  SERVICE: '#ffedd5:#9a3412',
-  OTHER: '#f1f5f9:#475569',
-};
 function TypeBadge({ type }: { type: string }) {
-  const [bg, fg] = (TYPE_COLORS[type] ?? TYPE_COLORS.OTHER).split(':');
+  const colors = TYPE_COLORS[type] ?? TYPE_COLORS['OTHER'];
+  const [bg, fg] = colors.split('|');
   return (
-    <span style={{ background: bg, color: fg, fontSize: 10, fontWeight: 700,
-      padding: '2px 8px', borderRadius: 100, letterSpacing: '.5px', textTransform: 'uppercase' }}>
-      {type.replace('_', ' ')}
+    <span style={{
+      background: bg, color: fg, fontSize: 10, fontWeight: 700,
+      padding: '2px 8px', borderRadius: 100, letterSpacing: '.5px',
+      textTransform: 'uppercase' as const,
+    }}>
+      {type.replace(/_/g, ' ')}
     </span>
   );
 }
@@ -63,10 +71,12 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
+  function set(k: string) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm(f => ({ ...f, [k]: e.target.value }));
+  }
 
-  const submit = async (e: React.FormEvent) => {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true); setError('');
     try {
@@ -90,7 +100,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     } finally {
       setBusy(false);
     }
-  };
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -157,9 +167,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
               <input value={form.size} onChange={set('size')} placeholder="e.g. M" />
             </div>
           </div>
-
           {error && <p className="error">{error}</p>}
-
           <div className="modal-footer">
             <button type="button" className="btn-outline" onClick={onClose} disabled={busy}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={busy}>
@@ -174,10 +182,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 
 // ─── Add Stock Modal ──────────────────────────────────────────────────────────
 function AddStockModal({
-  product,
-  stores,
-  onClose,
-  onSaved,
+  product, stores, onClose, onSaved,
 }: {
   product: InventoryProduct;
   stores: StoreLocation[];
@@ -190,19 +195,14 @@ function AddStockModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const submit = async (e: React.FormEvent) => {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!storeId || !quantity || !reason) { setError('All fields are required.'); return; }
     setBusy(true); setError('');
     try {
       await req('/api/v1/inventory/stock', {
         method: 'POST',
-        body: JSON.stringify({
-          productId: product.product_id,
-          storeId,
-          quantity: Number(quantity),
-          reason,
-        }),
+        body: JSON.stringify({ productId: product.product_id, storeId, quantity: Number(quantity), reason }),
       });
       onSaved();
     } catch (err) {
@@ -210,7 +210,7 @@ function AddStockModal({
     } finally {
       setBusy(false);
     }
-  };
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -232,8 +232,8 @@ function AddStockModal({
           <div className="form-group">
             <label>Quantity to Add *</label>
             <input
-              type="number" min="1" max="100000"
-              value={quantity} onChange={e => setQuantity(e.target.value)}
+              type="number" min="1" max="100000" value={quantity}
+              onChange={e => setQuantity(e.target.value)}
               placeholder="Enter quantity" required autoFocus
             />
           </div>
@@ -244,12 +244,10 @@ function AddStockModal({
               placeholder="e.g. New stock received from supplier" required
             />
           </div>
-
-          {/* Current stock summary */}
-          {product.locations && product.locations.length > 0 && (
+          {(product.locations ?? []).length > 0 && (
             <div className="stock-summary">
               <p className="stock-summary-title">Current stock</p>
-              {product.locations.map(l => (
+              {(product.locations ?? []).map(l => (
                 <div key={l.store_id} className="stock-summary-row">
                   <span>{l.store_name}</span>
                   <strong>{l.quantity} units</strong>
@@ -257,9 +255,7 @@ function AddStockModal({
               ))}
             </div>
           )}
-
           {error && <p className="error">{error}</p>}
-
           <div className="modal-footer">
             <button type="button" className="btn-outline" onClick={onClose} disabled={busy}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={busy}>
@@ -272,7 +268,7 @@ function AddStockModal({
   );
 }
 
-// ─── Main Inventory Page ──────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export function Inventory() {
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const [stores, setStores] = useState<StoreLocation[]>([]);
@@ -291,7 +287,7 @@ export function Inventory() {
       if (query) params.set('q', query);
       if (filterStore) params.set('location', filterStore);
       const [inv, str] = await Promise.all([
-        req<{ data: InventoryProduct[] }>(`/api/v1/inventory?${params}`),
+        req<{ data: InventoryProduct[] }>(`/api/v1/inventory?${params.toString()}`),
         req<{ data: StoreLocation[] }>('/api/v1/inventory/stores'),
       ]);
       setProducts(inv.data);
@@ -303,25 +299,15 @@ export function Inventory() {
     }
   }, [query, filterStore]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  // debounce query
-  useEffect(() => {
-    const t = setTimeout(() => load(), 300);
-    return () => clearTimeout(t);
-  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const filtered = filterType
-    ? products.filter(p => p.type === filterType)
-    : products;
-
+  const filtered = filterType ? products.filter(p => p.type === filterType) : products;
   const totalValue = products.reduce((s, p) => s + Number(p.selling_price) * p.total_stock, 0);
-  const lowStock = products.filter(p => p.total_stock <= p.reorder_level);
+  const lowStockCount = products.filter(p => p.total_stock <= p.reorder_level).length;
 
   return (
     <div className="inv-page">
-
-      {/* ── KPI bar ── */}
+      {/* KPIs */}
       <div className="inv-kpis">
         <div className="inv-kpi">
           <div className="inv-kpi-label">Total Products</div>
@@ -335,28 +321,21 @@ export function Inventory() {
           <div className="inv-kpi-label">Inventory Value</div>
           <div className="inv-kpi-value">{rupees(totalValue)}</div>
         </div>
-        <div className={`inv-kpi${lowStock.length > 0 ? ' inv-kpi-warn' : ''}`}>
+        <div className={lowStockCount > 0 ? 'inv-kpi inv-kpi-warn' : 'inv-kpi'}>
           <div className="inv-kpi-label">Low Stock Items</div>
-          <div className="inv-kpi-value">{lowStock.length}</div>
+          <div className="inv-kpi-value">{lowStockCount}</div>
         </div>
       </div>
 
-      {/* ── Toolbar ── */}
+      {/* Toolbar */}
       <div className="inv-toolbar">
         <div className="inv-search">
-          <input
-            autoFocus
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name or SKU…"
-          />
+          <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by name or SKU…" />
         </div>
-
         <select value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="">All stores</option>
           {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-
         <select value={filterType} onChange={e => setFilterType(e.target.value)}>
           <option value="">All types</option>
           <option value="FRAME">Frames</option>
@@ -366,13 +345,9 @@ export function Inventory() {
           <option value="SERVICE">Services</option>
           <option value="OTHER">Other</option>
         </select>
-
-        <button className="btn-primary" onClick={() => setShowAddProduct(true)}>
-          + Add Product
-        </button>
+        <button className="btn-primary" onClick={() => setShowAddProduct(true)}>+ Add Product</button>
       </div>
 
-      {/* ── Table ── */}
       {error && <p className="error" style={{ marginBottom: 12 }}>{error}</p>}
 
       {loading ? (
@@ -397,7 +372,7 @@ export function Inventory() {
                 <th style={{ textAlign: 'center' }}>Total Stock</th>
                 <th style={{ textAlign: 'center' }}>Available</th>
                 <th style={{ textAlign: 'center' }}>Reserved</th>
-                <th>Store Breakdown</th>
+                <th>Stores</th>
                 <th></th>
               </tr>
             </thead>
@@ -415,9 +390,7 @@ export function Inventory() {
                     <td style={{ textAlign: 'right', fontWeight: 700 }}>{rupees(p.selling_price)}</td>
                     <td style={{ textAlign: 'right', color: '#64748b' }}>{rupees(p.cost_price)}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <span className={`inv-qty${p.total_stock === 0 ? ' inv-qty-zero' : ''}`}>
-                        {p.total_stock}
-                      </span>
+                      <span className={p.total_stock === 0 ? 'inv-qty inv-qty-zero' : 'inv-qty'}>{p.total_stock}</span>
                     </td>
                     <td style={{ textAlign: 'center', color: '#16a34a', fontWeight: 600 }}>{p.available}</td>
                     <td style={{ textAlign: 'center', color: '#64748b' }}>{p.reserved}</td>
@@ -431,13 +404,7 @@ export function Inventory() {
                       </div>
                     </td>
                     <td>
-                      <button
-                        className="inv-add-stock-btn"
-                        onClick={() => setStockTarget(p)}
-                        title="Add stock"
-                      >
-                        + Stock
-                      </button>
+                      <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
                     </td>
                   </tr>
                 );
@@ -447,19 +414,14 @@ export function Inventory() {
         </div>
       )}
 
-      {/* ── Modals ── */}
       {showAddProduct && (
-        <AddProductModal
-          onClose={() => setShowAddProduct(false)}
-          onSaved={() => { setShowAddProduct(false); load(); }}
-        />
+        <AddProductModal onClose={() => setShowAddProduct(false)} onSaved={() => { setShowAddProduct(false); void load(); }} />
       )}
       {stockTarget && (
         <AddStockModal
-          product={stockTarget}
-          stores={stores}
+          product={stockTarget} stores={stores}
           onClose={() => setStockTarget(null)}
-          onSaved={() => { setStockTarget(null); load(); }}
+          onSaved={() => { setStockTarget(null); void load(); }}
         />
       )}
     </div>

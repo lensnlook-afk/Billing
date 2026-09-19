@@ -3,6 +3,9 @@
   "outputDirectory": "apps/web/dist",
   "framework": null,
   "functions": {
-    "api/[...path].ts": { "maxDuration": 30 }
+    "api/[...path].ts": {
+      "maxDuration": 30,
+      "runtime": "nodejs22.x"
+    }
   }
 }
