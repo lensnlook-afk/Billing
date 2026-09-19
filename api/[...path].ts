@@ -1,10 +1,17 @@
-import { app } from '../apps/api/dist/src/server.js';
+let appPromise: Promise<any> | undefined;
 
-let ready: Promise<void> | undefined;
+async function getApp() {
+  if (!appPromise) {
+    appPromise = import('../apps/api/dist/src/server.js').then(({ app }) => app);
+  }
+
+  return appPromise;
+}
 
 export default async function handler(req: any, res: any) {
-  ready ??= app.ready();
-  await ready;
+  const app = await getApp();
+
+  await app.ready();
 
   const response = await app.inject({
     method: req.method,
