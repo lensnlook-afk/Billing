@@ -5,7 +5,8 @@
   "framework": null,
   "functions": {
     "api/[...path].ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "apps/api/dist/**"
     }
   }
 }
