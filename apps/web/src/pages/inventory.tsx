@@ -23,7 +23,7 @@ interface InventoryProduct {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`http://localhost:3001${path}`, {
+  const res = await fetch(`${import.meta.env.VITE_API_URL ?? ""}${path}`, {
     credentials: 'include',
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
     ...init,
