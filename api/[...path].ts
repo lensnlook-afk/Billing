@@ -1,4 +1,4 @@
-import { app } from '../apps/api/src/server.js';
+import { app } from '../apps/api/dist/src/server.js';
 
 let ready: Promise<void> | undefined;
 
