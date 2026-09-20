@@ -35,7 +35,7 @@ app.addHook('onRequest', async (request, reply) => {
   }
   request.actor = await getActor(request);
 });
-app.setErrorHandler((error, request, reply) => { const isZodError = error instanceof z.ZodError; const status = error instanceof AppError ? error.statusCode : isZodError ? 422 : 500; request.log.error({ err:error, requestId:request.id }, 'request failed'); reply.status(status).send({ error: { code: error instanceof AppError ? error.code : isZodError ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR', message: status === 500 ? 'An unexpected error occurred.' : error instanceof Error ? error.message : 'Request failed.', requestId: request.id } }); });
+app.setErrorHandler((error, request, reply) => { const isZodError = error instanceof z.ZodError; const status = error instanceof AppError ? error.statusCode : isZodError ? 422 : 500; request.log.error({ err:error, requestId:request.id }, 'request failed'); reply.status(status).send({ error: { code: error instanceof AppError ? error.code : isZodError ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR', message: error instanceof Error ? error.message : 'Request failed.', requestId: request.id } }); });
 
 function requirePermission(permission: string) { return async (request: FastifyRequest) => { if (!request.actor) throw new AppError(401,'Sign in is required.','UNAUTHENTICATED'); if (!request.actor.permissions.has(permission)) throw new AppError(403,'You do not have permission for this action.','FORBIDDEN'); }; }
 const loginSchema = z.object({ identifier:z.string().trim().min(2).max(80), password:z.string().min(1).max(256) });
