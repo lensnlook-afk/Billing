@@ -8,5 +8,8 @@
       "maxDuration": 30,
       "includeFiles": "apps/api/dist/**"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/[...path]" }
+  ]
 }
