@@ -46,7 +46,15 @@ app.get('/api/v1/auth/me', { preHandler: requirePermission('dashboard.read') }, 
 app.get('/healthz', async () => ({ status:'ok' })); app.get('/readyz', async () => { await pool.query('SELECT 1'); return {status:'ready'}; });
 app.get('/api/v1/debug-env', async () => {
   const keys = ['DATABASE_URL','SESSION_SECRET','WEB_ORIGIN','COOKIE_SECURE','DATABASE_SSL'];
-  return Object.fromEntries(keys.map(k => [k, process.env[k] ? '✓ set' : '✗ MISSING']));
+  const result: Record<string, string> = Object.fromEntries(keys.map(k => [k, process.env[k] ? '✓ set' : '✗ MISSING']));
+  // Test DB connection
+  try {
+    await pool.query('SELECT 1');
+    result['DB_CONNECTION'] = '✓ ok';
+  } catch (err: any) {
+    result['DB_CONNECTION'] = `✗ FAILED: ${err?.message}`;
+  }
+  return result;
 });
 app.get('/api/v1/dashboard', { preHandler: requirePermission('dashboard.read') }, async () => { const { rows }=await pool.query(`SELECT COALESCE(sum(grand_total) FILTER (WHERE status='POSTED'),0) sales,COALESCE(sum(amount_paid) FILTER (WHERE status='POSTED'),0) collections,COALESCE(sum(amount_due) FILTER (WHERE status='POSTED'),0) outstanding,count(*) FILTER (WHERE status='POSTED') invoices FROM invoices WHERE created_at >= date_trunc('day',now())`); const stock=await pool.query(`SELECT count(*) low_stock FROM inventory_balances b JOIN product_variants v ON v.id=b.variant_id WHERE b.quantity <= v.reorder_threshold`); return { today:rows[0],lowStock:Number(stock.rows[0].low_stock) }; });
 const customerSchema=z.object({name:z.string().trim().min(2).max(160),mobile:z.string().trim().regex(/^[0-9+ -]{7,20}$/).optional(),email:z.string().email().optional(),address:z.string().max(1000).optional(),notes:z.string().max(2000).optional()});
