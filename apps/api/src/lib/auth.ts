@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { hash, verify, Algorithm } from '@node-rs/argon2';
+import bcrypt from 'bcryptjs';
 import type { FastifyRequest } from 'fastify';
 import { pool } from './db.js';
 import { config } from './config.js';
@@ -7,8 +7,8 @@ import { config } from './config.js';
 export type Actor = { id: string; loginName: string; displayName: string; roles: string[]; permissions: Set<string>; sessionId: string };
 export const sessionCookie = 'clarity_session';
 export const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
-export async function passwordHash(password: string) { return hash(password, { algorithm: Algorithm.Argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 }); }
-export async function passwordVerify(password: string, passwordHashValue: string) { return verify(passwordHashValue, password); }
+export async function passwordHash(password: string) { return bcrypt.hash(password, 12); }
+export async function passwordVerify(password: string, passwordHashValue: string) { return bcrypt.compare(password, passwordHashValue); }
 export function createToken() { return randomBytes(32).toString('base64url'); }
 export function sessionCookieOptions() { return { path: '/', httpOnly: true, sameSite: 'strict' as const, secure: config.COOKIE_SECURE === 'true', maxAge: 60 * 60 * 12 }; }
 export async function getActor(request: FastifyRequest): Promise<Actor | null> {
