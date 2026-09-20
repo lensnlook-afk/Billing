@@ -13,11 +13,18 @@ export default async function handler(req: any, res: any) {
 
   await app.ready();
 
+  // Vercel pre-parses JSON bodies into objects. Fastify's inject() expects
+  // a string/Buffer, so we must re-serialize to avoid silent body corruption.
+  let payload: string | undefined;
+  if (!['GET', 'HEAD'].includes(req.method ?? '') && req.body !== undefined) {
+    payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+  }
+
   const response = await app.inject({
     method: req.method,
     url: req.url,
     headers: req.headers,
-    payload: ['GET', 'HEAD'].includes(req.method ?? '') ? undefined : req.body,
+    payload,
   });
 
   res.statusCode = response.statusCode;
