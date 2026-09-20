@@ -9,7 +9,24 @@ async function getApp() {
 }
 
 export default async function handler(req: any, res: any) {
-  const app = await getApp();
+  // Diagnostic: expose which env vars are present at runtime (values hidden)
+  if (req.url === '/api/v1/debug-env') {
+    const keys = ['DATABASE_URL','SESSION_SECRET','WEB_ORIGIN','COOKIE_SECURE','DATABASE_SSL'];
+    res.statusCode = 200;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(Object.fromEntries(keys.map(k => [k, process.env[k] ? '✓ set' : '✗ MISSING']))));
+    return;
+  }
+
+  let app: any;
+  try {
+    app = await getApp();
+  } catch (err: any) {
+    res.statusCode = 500;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ error: 'App failed to load', message: err?.message, stack: err?.stack }));
+    return;
+  }
 
   await app.ready();
 
