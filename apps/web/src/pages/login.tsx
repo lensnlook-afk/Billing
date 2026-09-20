@@ -34,7 +34,7 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
       <form onSubmit={submit}>
         <label>
           Login as
-          <select value={identifier} onChange={e => setIdentifier(e.target.value)} required>
+          <select id="login-as" name="login-as" value={identifier} onChange={e => setIdentifier(e.target.value)} required>
             <option value="" disabled>Choose account</option>
             <option value="admin">Admin</option>
             <option value="employee">Employee</option>
@@ -44,6 +44,8 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
         <label>
           Password
           <input
+            id="password"
+            name="password"
             autoComplete="current-password"
             type="password"
             value={password}
