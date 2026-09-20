@@ -195,11 +195,15 @@ aside footer button:hover { background: rgba(255,255,255,.08); color: #fff; }
 .pos-search-bar { position: relative; }
 .pos-search-bar input {
   width: 100%; border: 1px solid #cbd5e1; border-radius: 9px;
-  background: #fff; padding: 13px 48px 13px 14px;
+  background: #fff; padding: 13px 40px 13px 40px;
   font-size: 15px; color: #0f172a; outline: none;
   transition: border-color .12s, box-shadow .12s;
 }
 .pos-search-bar input:focus { border-color: #1c64f2; box-shadow: 0 0 0 3px rgba(28,100,242,.12); }
+.search-icon {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  font-size: 16px; pointer-events: none; line-height: 1;
+}
 .pos-search-bar kbd {
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   color: #94a3b8; border: 1px solid #cbd5e1; border-radius: 4px;
@@ -472,8 +476,55 @@ aside footer button:hover { background: rgba(255,255,255,.08); color: #fff; }
 }
 
 /* =============================================================
+   POS MOBILE TABS — hidden on desktop, shown on mobile
+   ============================================================= */
+.pos-mobile-tabs { display: none; }
+.mob-hidden { display: none !important; }
+.mob-active  { display: flex !important; }
+
+/* Desktop: both panels always visible */
+.catalog { display: flex; flex-direction: column; gap: 12px; }
+.inv-desktop-only { display: block; }
+.inv-mobile-only  { display: none; }
+
+/* Inventory mobile card list */
+.inv-card-list { display: flex; flex-direction: column; gap: 10px; }
+.inv-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.inv-card-warn { border-color: #fcd34d; background: #fffbeb; }
+.inv-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.inv-card-name { font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.3; flex: 1; }
+.inv-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inv-card-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 4px; }
+.inv-card-stat { display: flex; flex-direction: column; gap: 2px; }
+.inv-card-stat span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; }
+.inv-card-stat strong { font-size: 15px; font-weight: 800; color: #0f172a; }
+
+/* POS search clear & customer clear buttons */
+.search-clear {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  border: 0; background: none; color: #94a3b8; font-size: 14px;
+  padding: 4px; line-height: 1; cursor: pointer;
+}
+.customer-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  border: 0; background: none; color: #94a3b8; font-size: 14px;
+  padding: 4px; cursor: pointer;
+}
+.cart-clear-btn { border: 0; background: none; color: #dc2626; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 5px; min-height: 32px; }
+.cart-notice { padding: 12px 16px; font-size: 13px; }
+.cart-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #1c64f2; color: #fff; border-radius: 100px;
+  font-size: 10px; font-weight: 700; min-width: 18px; height: 18px;
+  padding: 0 5px; margin-left: 4px;
+}
+.cart-line-info { display: flex; flex-direction: column; }
+
+/* =============================================================
    RESPONSIVE — MOBILE  (max 768px)
-   Full mobile-optimised layout with bottom tab bar
    ============================================================= */
 @media (max-width: 768px) {
   /* Hide desktop sidebar entirely */
@@ -481,44 +532,86 @@ aside footer button:hover { background: rgba(255,255,255,.08); color: #fff; }
   .shell > aside { display: none; }
 
   /* Main takes full width, add bottom padding for tab bar */
-  .shell > main { padding-bottom: 64px; }
+  .shell > main { padding-bottom: 72px; }
 
   /* Compact header */
   .shell > main > header {
-    padding: 12px 16px;
+    padding: 10px 16px;
     border-radius: 0;
   }
-  .shell > main > header h2 { font-size: 17px; }
+  .shell > main > header h2 { font-size: 16px; }
   .eyebrow { display: none; }
   .online { font-size: 10px; padding: 4px 9px; }
   .online b { width: 5px; height: 5px; }
 
-  .page-content { padding: 14px 16px; }
+  .page-content { padding: 12px 14px; }
 
   /* Dashboard */
   .kpi-grid { grid-template-columns: repeat(2,1fr); gap: 8px; }
-  .kpi { padding: 14px 14px; }
+  .kpi { padding: 12px 14px; }
   .kpi-value { font-size: 20px; }
   .dash-cards { grid-template-columns: 1fr; gap: 10px; }
 
-  /* POS */
-  .pos { gap: 14px; }
+  /* POS mobile tabs */
+  .pos-mobile-tabs {
+    display: flex;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  .pos-mobile-tab {
+    flex: 1; border: 0; background: none; border-radius: 8px;
+    padding: 9px 8px; font-size: 13px; font-weight: 600;
+    color: #64748b; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; gap: 4px;
+    transition: background .12s, color .12s;
+    min-height: 40px;
+  }
+  .pos-mobile-tab.active {
+    background: #fff; color: #1c64f2;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+
+  /* POS layout on mobile: single panel, full width */
+  .pos { grid-template-columns: 1fr; gap: 0; }
+  .catalog { gap: 10px; }
   .product-grid { grid-template-columns: repeat(2,1fr); gap: 8px; }
-  .product { padding: 11px; min-height: 96px; }
-  .product strong { font-size: 12px; }
-  .product b { font-size: 14px; }
-  .cart-lines { max-height: 200px; }
+  .product { padding: 10px; min-height: 88px; }
+  .product strong { font-size: 12px; margin-top: 8px; }
+  .product b { font-size: 13px; }
+  .stock { font-size: 9px; padding: 2px 6px; }
+
+  /* Cart on mobile: full panel, not sticky */
+  .cart {
+    position: static;
+    border-radius: 12px;
+    box-shadow: none;
+    border: 1px solid #e2e8f0;
+  }
+  .cart-lines { max-height: none; }
+  .cart-footer { padding: 14px; gap: 12px; }
+  .totals-row.grand { font-size: 17px; }
+  .payment-section input { font-size: 20px; }
+  .method-pills { gap: 8px; }
+  .method-pills button { min-height: 40px; padding: 8px 18px; font-size: 13px; }
+  .checkout-btn { padding: 16px; font-size: 16px; border-radius: 12px; }
+  .empty-cart { padding: 48px 24px; }
 
   /* Inventory */
   .inv-kpis { grid-template-columns: repeat(2,1fr); gap: 8px; }
   .inv-kpi { padding: 12px 14px; }
   .inv-kpi-value { font-size: 18px; }
-  .inv-toolbar { gap: 7px; padding: 10px 12px; }
-  .inv-toolbar select { max-width: 110px; font-size: 12px; padding: 8px 8px; }
+  .inv-toolbar { gap: 7px; padding: 10px 12px; flex-wrap: wrap; }
+  .inv-toolbar select { max-width: 100%; font-size: 12px; padding: 8px 8px; flex: 1; }
+  .inv-toolbar .btn-primary { width: 100%; }
+  .inv-desktop-only { display: none; }
+  .inv-mobile-only  { display: flex; flex-direction: column; }
 
   /* Modal slides up from bottom on mobile */
   .modal-overlay { align-items: flex-end; }
-  .modal { border-radius: 20px 20px 0 0; max-height: 88vh; }
+  .modal { border-radius: 20px 20px 0 0; max-height: 92vh; }
   .form-row { grid-template-columns: 1fr; gap: 10px; }
   .modal-body { padding: 14px 16px; }
   .modal-header { padding: 16px 16px 12px; }
@@ -537,6 +630,7 @@ aside footer button:hover { background: rgba(255,255,255,.08); color: #fff; }
 
   /* Empty state */
   .empty { padding: 40px 20px; }
+  .soon-pill { margin-top: 12px; }
 }
 
 /* =============================================================
@@ -601,6 +695,6 @@ aside footer button:hover { background: rgba(255,255,255,.08); color: #fff; }
 /* Safe area for notched phones */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   @media (max-width: 768px) {
-    .shell > main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+    .shell > main { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   }
 }

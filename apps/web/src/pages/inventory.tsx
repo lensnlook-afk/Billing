@@ -360,58 +360,106 @@ export function Inventory() {
           </button>
         </div>
       ) : (
-        <div className="inv-table-wrap">
-          <table className="inv-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>SKU</th>
-                <th>Type</th>
-                <th style={{ textAlign: 'right' }}>Selling Price</th>
-                <th style={{ textAlign: 'right' }}>Cost</th>
-                <th style={{ textAlign: 'center' }}>Total Stock</th>
-                <th style={{ textAlign: 'center' }}>Available</th>
-                <th style={{ textAlign: 'center' }}>Reserved</th>
-                <th>Stores</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => {
-                const isLow = p.total_stock <= p.reorder_level;
-                return (
-                  <tr key={p.product_id} className={isLow ? 'inv-row-warn' : ''}>
-                    <td>
-                      <div className="inv-product-name">{p.name}</div>
-                      {isLow && <div className="inv-low-badge">Low stock</div>}
-                    </td>
-                    <td><code className="inv-sku">{p.sku}</code></td>
-                    <td><TypeBadge type={p.type} /></td>
-                    <td style={{ textAlign: 'right', fontWeight: 700 }}>{rupees(p.selling_price)}</td>
-                    <td style={{ textAlign: 'right', color: '#64748b' }}>{rupees(p.cost_price)}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={p.total_stock === 0 ? 'inv-qty inv-qty-zero' : 'inv-qty'}>{p.total_stock}</span>
-                    </td>
-                    <td style={{ textAlign: 'center', color: '#16a34a', fontWeight: 600 }}>{p.available}</td>
-                    <td style={{ textAlign: 'center', color: '#64748b' }}>{p.reserved}</td>
-                    <td>
-                      <div className="inv-store-pills">
-                        {(p.locations ?? []).map(l => (
-                          <span key={l.store_id} className="inv-store-pill">
-                            {l.store_name.replace('Lens & Look — ', '')}: {l.quantity}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Desktop table */}
+          <div className="inv-table-wrap inv-desktop-only">
+            <table className="inv-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th>Type</th>
+                  <th style={{ textAlign: 'right' }}>Selling Price</th>
+                  <th style={{ textAlign: 'right' }}>Cost</th>
+                  <th style={{ textAlign: 'center' }}>Total Stock</th>
+                  <th style={{ textAlign: 'center' }}>Available</th>
+                  <th style={{ textAlign: 'center' }}>Reserved</th>
+                  <th>Stores</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(p => {
+                  const isLow = p.total_stock <= p.reorder_level;
+                  return (
+                    <tr key={p.product_id} className={isLow ? 'inv-row-warn' : ''}>
+                      <td>
+                        <div className="inv-product-name">{p.name}</div>
+                        {isLow && <div className="inv-low-badge">Low stock</div>}
+                      </td>
+                      <td><code className="inv-sku">{p.sku}</code></td>
+                      <td><TypeBadge type={p.type} /></td>
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{rupees(p.selling_price)}</td>
+                      <td style={{ textAlign: 'right', color: '#64748b' }}>{rupees(p.cost_price)}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={p.total_stock === 0 ? 'inv-qty inv-qty-zero' : 'inv-qty'}>{p.total_stock}</span>
+                      </td>
+                      <td style={{ textAlign: 'center', color: '#16a34a', fontWeight: 600 }}>{p.available}</td>
+                      <td style={{ textAlign: 'center', color: '#64748b' }}>{p.reserved}</td>
+                      <td>
+                        <div className="inv-store-pills">
+                          {(p.locations ?? []).map(l => (
+                            <span key={l.store_id} className="inv-store-pill">
+                              {l.store_name.replace('Lens & Look — ', '')}: {l.quantity}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile card list */}
+          <div className="inv-card-list inv-mobile-only">
+            {filtered.map(p => {
+              const isLow = p.total_stock <= p.reorder_level;
+              return (
+                <div key={p.product_id} className={`inv-card${isLow ? ' inv-card-warn' : ''}`}>
+                  <div className="inv-card-top">
+                    <div className="inv-card-name">
+                      {p.name}
+                      {isLow && <span className="inv-low-badge" style={{ marginLeft: 6 }}>Low stock</span>}
+                    </div>
+                    <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
+                  </div>
+                  <div className="inv-card-meta">
+                    <code className="inv-sku">{p.sku}</code>
+                    <TypeBadge type={p.type} />
+                  </div>
+                  <div className="inv-card-stats">
+                    <div className="inv-card-stat">
+                      <span>Price</span>
+                      <strong>{rupees(p.selling_price)}</strong>
+                    </div>
+                    <div className="inv-card-stat">
+                      <span>In stock</span>
+                      <strong className={p.total_stock === 0 ? 'inv-qty-zero' : ''}>{p.total_stock}</strong>
+                    </div>
+                    <div className="inv-card-stat">
+                      <span>Available</span>
+                      <strong style={{ color: '#16a34a' }}>{p.available}</strong>
+                    </div>
+                  </div>
+                  {(p.locations ?? []).length > 0 && (
+                    <div className="inv-store-pills" style={{ marginTop: 8 }}>
+                      {(p.locations ?? []).map(l => (
+                        <span key={l.store_id} className="inv-store-pill">
+                          {l.store_name.replace('Lens & Look — ', '')}: {l.quantity}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {showAddProduct && (
