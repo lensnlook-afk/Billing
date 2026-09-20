@@ -9,12 +9,28 @@ await app.register(helmet, { contentSecurityPolicy: false });
 await app.register(cookie);
 // In development we allow any origin (the frontend runs on localhost:5173)
 // and we need to send cookies, so `origin: true` reflects the incoming Origin header.
-await app.register(cors, { origin: true, credentials: true });
+// Build allowed-origin list: always include localhost dev origins plus WEB_ORIGIN.
+// On Vercel, WEB_ORIGIN is set to the production frontend URL.
+// We also accept any *.vercel.app preview URL so branch/preview deploys work.
+function isAllowedOrigin(origin: string): boolean {
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return true;
+  if (origin === config.WEB_ORIGIN) return true;
+  // Allow Vercel preview URLs for the same team (billing-*-lensnlook.vercel.app)
+  if (/^https:\/\/billing-[^.]+\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
+
+await app.register(cors, {
+  origin: (origin, cb) => {
+    if (!origin || isAllowedOrigin(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'), false);
+  },
+  credentials: true,
+});
 app.addHook('onRequest', async (request, reply) => {
   reply.header('x-request-id', request.id);
   const origin = request.headers.origin;
-  const isLocalhost = origin?.startsWith('http://localhost') || origin?.startsWith('http://127.0.0.1');
-  if (['POST','PUT','PATCH','DELETE'].includes(request.method) && origin && !isLocalhost && origin !== config.WEB_ORIGIN) {
+  if (['POST','PUT','PATCH','DELETE'].includes(request.method) && origin && !isAllowedOrigin(origin)) {
     throw new AppError(403,'Cross-origin request denied.','ORIGIN_DENIED');
   }
   request.actor = await getActor(request);
