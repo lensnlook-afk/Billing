@@ -47,6 +47,7 @@ app.get('/healthz', async () => ({ status:'ok' })); app.get('/readyz', async () 
 app.get('/api/v1/debug-env', async () => {
   const keys = ['DATABASE_URL','SESSION_SECRET','WEB_ORIGIN','COOKIE_SECURE','DATABASE_SSL'];
   const result: Record<string, string> = Object.fromEntries(keys.map(k => [k, process.env[k] ? '✓ set' : '✗ MISSING']));
+  result['BUILD_VERSION'] = 'v3-db-test';
   // Test DB connection
   try {
     await pool.query('SELECT 1');

@@ -4,7 +4,6 @@ async function getApp() {
   if (!appPromise) {
     appPromise = import('../apps/api/dist/src/server.js').then(({ app }) => app);
   }
-
   return appPromise;
 }
 
