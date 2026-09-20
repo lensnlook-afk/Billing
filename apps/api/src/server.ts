@@ -47,13 +47,24 @@ app.get('/healthz', async () => ({ status:'ok' })); app.get('/readyz', async () 
 app.get('/api/v1/debug-env', async () => {
   const keys = ['DATABASE_URL','SESSION_SECRET','WEB_ORIGIN','COOKIE_SECURE','DATABASE_SSL'];
   const result: Record<string, string> = Object.fromEntries(keys.map(k => [k, process.env[k] ? '✓ set' : '✗ MISSING']));
-  result['BUILD_VERSION'] = 'v3-db-test';
-  // Test DB connection
+  result['BUILD_VERSION'] = 'v4-audit-fix';
   try {
     await pool.query('SELECT 1');
     result['DB_CONNECTION'] = '✓ ok';
   } catch (err: any) {
     result['DB_CONNECTION'] = `✗ FAILED: ${err?.message}`;
+  }
+  try {
+    const r = await pool.query(`SELECT last_hash FROM audit_chain_heads WHERE scope='global'`);
+    result['AUDIT_CHAIN'] = r.rows[0] ? '✓ ok' : '✗ MISSING ROW';
+  } catch (err: any) {
+    result['AUDIT_CHAIN'] = `✗ FAILED: ${err?.message}`;
+  }
+  try {
+    const r = await pool.query(`SELECT id FROM users WHERE login_name='admin' LIMIT 1`);
+    result['ADMIN_USER'] = r.rows[0] ? '✓ exists' : '✗ NOT FOUND';
+  } catch (err: any) {
+    result['ADMIN_USER'] = `✗ FAILED: ${err?.message}`;
   }
   return result;
 });
