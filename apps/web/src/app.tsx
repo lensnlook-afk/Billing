@@ -4,40 +4,35 @@ import { Login } from './pages/login';
 import { Pos } from './pages/pos';
 import { Dashboard } from './pages/dashboard';
 import { Inventory } from './pages/inventory';
+import { Customers } from './pages/customers';
+import { Reports } from './pages/reports';
 
 // Primary tabs shown in bottom nav
 const PRIMARY_TABS = [
-  { screen: 'Dashboard', icon: '◎', label: 'Home' },
+  { screen: 'Dashboard', icon: '◎',  label: 'Home' },
   { screen: 'Billing',   icon: '🧾', label: 'Billing' },
   { screen: 'Inventory', icon: '📦', label: 'Stock' },
   { screen: 'Customers', icon: '👥', label: 'Customers' },
   { screen: 'More',      icon: '≡',  label: 'More' },
 ];
 
-// All nav items for sidebar + more menu
+// All nav items for sidebar
 const ALL_NAV = [
-  'Dashboard','Billing','Inventory','Customers','Orders',
-  'Purchases','Suppliers','Returns','Payments','Reports',
-  'Employees','Audit Logs','Settings',
+  'Dashboard','Billing','Inventory','Customers',
+  'Reports','Audit Logs','Settings',
 ];
 
-// Items shown in the More menu (everything not in primary tabs)
+// Items shown in the More menu
 const MORE_ITEMS = [
-  { screen: 'Orders',     icon: '📋', label: 'Orders' },
-  { screen: 'Purchases',  icon: '🛒', label: 'Purchases' },
-  { screen: 'Suppliers',  icon: '🏭', label: 'Suppliers' },
-  { screen: 'Returns',    icon: '↩',  label: 'Returns' },
-  { screen: 'Payments',   icon: '💳', label: 'Payments' },
-  { screen: 'Reports',    icon: '📈', label: 'Reports' },
-  { screen: 'Employees',  icon: '👤', label: 'Employees' },
+  { screen: 'Reports',    icon: '�', label: 'Reports' },
   { screen: 'Audit Logs', icon: '🔒', label: 'Audit' },
-  { screen: 'Settings',   icon: '⚙', label: 'Settings' },
+  { screen: 'Settings',   icon: '⚙',  label: 'Settings' },
 ];
 
 export function App() {
-  const [user, setUser]       = useState<User | null>(null);
-  const [screen, setScreen]   = useState('Billing');
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]         = useState<User | null>(null);
+  const [screen, setScreen]     = useState('Billing');
+  const [loading, setLoading]   = useState(true);
   const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
@@ -47,24 +42,35 @@ export function App() {
   if (loading) return <main className="centered">Opening Lens&amp;Look…</main>;
   if (!user)   return <Login onLogin={setUser} />;
 
-  function navigate(s: string) {
-    setScreen(s);
-    setShowMore(false);
-  }
+  const isAdmin = user.roles.includes('OWNER');
+
+  function navigate(s: string) { setScreen(s); setShowMore(false); }
 
   let content: React.ReactNode;
-  if (screen === 'Billing')        content = <Pos />;
-  else if (screen === 'Dashboard') content = <Dashboard />;
-  else if (screen === 'Inventory') content = <Inventory />;
+  if      (screen === 'Billing')    content = <Pos />;
+  else if (screen === 'Dashboard')  content = <Dashboard />;
+  else if (screen === 'Inventory')  content = <Inventory />;
+  else if (screen === 'Customers')  content = <Customers />;
+  else if (screen === 'Reports' && isAdmin) content = <Reports />;
+  else if (screen === 'Reports' && !isAdmin) content = (
+    <section className="empty">
+      <h1>Access Denied</h1>
+      <p>Reports are only available to admin users.</p>
+    </section>
+  );
   else content = (
     <section className="empty">
       <h1>{screen}</h1>
-      <p>This module is gated until its workflow, audit events, approvals, and tests are implemented.</p>
+      <p>This module is coming soon.</p>
       <span className="soon-pill">Coming soon</span>
     </section>
   );
 
   const pageTitle = screen === 'Billing' ? 'Point of Sale' : screen;
+
+  // Filter sidebar nav based on role
+  const sidebarNav = isAdmin ? ALL_NAV : ALL_NAV.filter(n => !['Reports','Audit Logs','Settings'].includes(n));
+  const moreItems  = isAdmin ? MORE_ITEMS : [];
 
   return (
     <div className="shell">
@@ -75,12 +81,8 @@ export function App() {
           <small className="brand-sub">BADAMI · ILKAL</small>
         </div>
         <nav>
-          {ALL_NAV.map(item => (
-            <button
-              key={item}
-              className={screen === item ? 'active' : ''}
-              onClick={() => navigate(item)}
-            >
+          {sidebarNav.map(item => (
+            <button key={item} className={screen === item ? 'active' : ''} onClick={() => navigate(item)}>
               {item}
             </button>
           ))}
@@ -99,7 +101,10 @@ export function App() {
             <p className="eyebrow">LENS&amp;LOOK · NOW IN BADAMI &amp; ILKAL</p>
             <h2>{pageTitle}</h2>
           </div>
-          <div className="online"><b /> Live</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{user.displayName}</span>
+            <div className="online"><b /> Live</div>
+          </div>
         </header>
         <div className="page-content">{content}</div>
       </main>
@@ -124,7 +129,7 @@ export function App() {
         <div className="more-menu-overlay" onClick={() => setShowMore(false)}>
           <div className="more-menu" onClick={e => e.stopPropagation()}>
             <div className="more-menu-title">More</div>
-            {MORE_ITEMS.map(item => (
+            {moreItems.map(item => (
               <button key={item.screen} className="more-menu-item" onClick={() => navigate(item.screen)}>
                 <span className="tab-icon">{item.icon}</span>
                 <span>{item.label}</span>

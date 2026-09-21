@@ -3,13 +3,16 @@ import { useEffect, useState, useCallback } from 'react';
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface StoreLocation { id: string; code: string; name: string }
 
-interface StoreStock { store_id: string; store_name: string; quantity: number; available: number }
+interface LocationStock { store_id: string; store_name: string; quantity: number }
 
 interface InventoryProduct {
   product_id: string;
   name: string;
   sku: string;
-  type: string;
+  variant?: string;
+  color?: string;
+  size?: string;
+  type?: string;
   selling_price: string;
   cost_price: string;
   tax_rate: string;
@@ -18,7 +21,7 @@ interface InventoryProduct {
   available: number;
   reserved: number;
   damaged: number;
-  locations: StoreStock[] | null;
+  locations: LocationStock[] | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -202,7 +205,7 @@ function AddStockModal({
     try {
       await req('/api/v1/inventory/stock', {
         method: 'POST',
-        body: JSON.stringify({ productId: product.product_id, storeId, quantity: Number(quantity), reason }),
+        body: JSON.stringify({ variantId: product.product_id, locationId: storeId, quantity: Number(quantity), reason }),
       });
       onSaved();
     } catch (err) {
@@ -254,8 +257,7 @@ function AddStockModal({
                 </div>
               ))}
             </div>
-          )}
-          {error && <p className="error">{error}</p>}
+          )}          {error && <p className="error">{error}</p>}
           <div className="modal-footer">
             <button type="button" className="btn-outline" onClick={onClose} disabled={busy}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={busy}>
