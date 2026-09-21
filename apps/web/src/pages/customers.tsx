@@ -92,21 +92,21 @@ function CustomerModal({ customer, onClose, onSaved }: {
         <form onSubmit={submit} className="modal-body">
           <div className="form-group">
             <label>Full Name *</label>
-            <input value={form.fullName} onChange={set('fullName')} placeholder="e.g. Rahul Kumar" required autoFocus />
+            <input value={form.fullName} onChange={set('fullName')} placeholder="" required autoFocus />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>Mobile</label>
-              <input value={form.phone} onChange={set('phone')} placeholder="9876543210" inputMode="tel" />
+              <input value={form.phone} onChange={set('phone')} placeholder="" inputMode="tel" />
             </div>
             <div className="form-group">
               <label>Email</label>
-              <input value={form.email} onChange={set('email')} type="email" placeholder="Optional" />
+              <input value={form.email} onChange={set('email')} type="email" placeholder="" />
             </div>
           </div>
           <div className="form-group">
             <label>Address</label>
-            <input value={form.address} onChange={set('address')} placeholder="Optional" />
+            <input value={form.address} onChange={set('address')} placeholder="" />
           </div>
           {error && <p className="error">{error}</p>}
           <div className="modal-footer">
@@ -246,8 +246,7 @@ export function Customers() {
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name, mobile or code…"
-          />
+            placeholder="Search by name, mobile or code…"          />
         </div>
         <button className="btn-primary" onClick={() => setShowAdd(true)}>+ Add Customer</button>
       </div>

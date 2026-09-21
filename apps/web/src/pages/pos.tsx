@@ -136,8 +136,8 @@ export function Pos() {
             <div className="suggestions">
               {customers.map(c => (
                 <button key={c.id} onClick={() => { setCustomer(c); setCustomerQuery(''); setCustomers([]); }}>
-                  {c.name}
-                  <small>{c.mobile ?? `C-${c.customer_no}`}</small>
+                  {c.full_name}
+                  <small>{c.phone ?? c.customer_code}</small>
                 </button>
               ))}
             </div>
