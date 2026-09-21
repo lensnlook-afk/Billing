@@ -45,7 +45,11 @@ export default async function handler(req: any, res: any) {
   const response = await app.inject({
     method: req.method,
     url: req.url,
-    headers: req.headers,
+    headers: {
+      ...req.headers,
+      // Ensure Fastify's JSON body parser fires even if Vercel strips/alters content-type
+      ...(payload !== undefined ? { 'content-type': 'application/json' } : {}),
+    },
     payload,
   });
 
