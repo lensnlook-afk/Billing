@@ -161,16 +161,16 @@ app.patch('/api/v1/customers/:id', { preHandler: requirePermission('customers.wr
 app.get('/api/v1/products', { preHandler: requirePermission('products.read') }, async request => {
   const { q = '', limit = '50' } = request.query as { q?: string; limit?: string };
   const result = await pool.query(
-    `SELECT v.id,v.sku,v.barcode,v.variant,v.size,v.color,v.selling_price,v.mrp,v.reorder_threshold,
-            p.name as name,p.tax_rate,
+    `SELECT p.id, p.sku, p.barcode, p.product_name AS name, p.color, p.size,
+            p.selling_price, p.cost_price, p.tax_rate,
+            p.reorder_level AS reorder_threshold,
             COALESCE(sum(b.quantity),0)::int stock
-     FROM product_variants v
-     JOIN products p ON p.id=v.product_id
-     LEFT JOIN inventory_balances b ON b.variant_id=v.id
-     WHERE v.active AND p.active
-       AND ($1='' OR v.sku ILIKE '%'||$1||'%' OR v.barcode=$1 OR p.name ILIKE '%'||$1||'%')
-     GROUP BY v.id,p.id
-     ORDER BY p.name
+     FROM products p
+     LEFT JOIN inventory_balances b ON b.variant_id=p.id
+     WHERE p.is_active
+       AND ($1='' OR p.sku ILIKE '%'||$1||'%' OR p.barcode=$1 OR p.product_name ILIKE '%'||$1||'%')
+     GROUP BY p.id
+     ORDER BY p.product_name
      LIMIT $2`,
     [q.trim(), Math.min(Math.max(Number(limit) || 50, 1), 100)]
   );
@@ -187,15 +187,15 @@ app.get('/api/v1/inventory', { preHandler: requirePermission('inventory.read') }
   const result = await pool.query(
     `SELECT
        p.id AS product_id,
-       p.name,
-       v.sku,
-       v.variant,
-       v.color,
-       v.size,
-       v.selling_price,
-       v.cost_price,
+       p.product_name AS name,
+       p.sku,
+       p.color,
+       p.size,
+       p.product_type AS type,
+       p.selling_price,
+       p.cost_price,
        p.tax_rate,
-       v.reorder_threshold AS reorder_level,
+       p.reorder_level,
        COALESCE(SUM(b.quantity),0)::int AS total_stock,
        COALESCE(SUM(b.quantity),0)::int AS available,
        0 AS reserved,
@@ -206,14 +206,13 @@ app.get('/api/v1/inventory', { preHandler: requirePermission('inventory.read') }
          'quantity',   b.quantity
        )) FILTER (WHERE l.id IS NOT NULL) AS locations
      FROM products p
-     JOIN product_variants v ON v.product_id=p.id AND v.active
-     LEFT JOIN inventory_balances b ON b.variant_id=v.id
+     LEFT JOIN inventory_balances b ON b.variant_id=p.id
      LEFT JOIN locations l ON l.id=b.location_id
-     WHERE p.active
-       AND ($1='' OR p.name ILIKE '%'||$1||'%' OR v.sku ILIKE '%'||$1||'%')
+     WHERE p.is_active
+       AND ($1='' OR p.product_name ILIKE '%'||$1||'%' OR p.sku ILIKE '%'||$1||'%')
        AND ($2='' OR b.location_id::text=$2)
-     GROUP BY p.id, v.id
-     ORDER BY p.name
+     GROUP BY p.id
+     ORDER BY p.product_name
      LIMIT 200`,
     [q.trim(), location.trim()]
   );
@@ -237,22 +236,15 @@ const productSchema = z.object({
 app.post('/api/v1/inventory/products', { preHandler: requirePermission('products.write') }, async (request, reply) => {
   const input = productSchema.parse(request.body);
   const result = await transaction(async db => {
-    // Always create a new product row
-    const product = await db.query(
-      `INSERT INTO products(name, tax_rate, active) VALUES($1, 0, true) RETURNING id`,
-      [input.name]
-    );
-    const productId = product.rows[0].id;
-    // Auto-generate a unique SKU: PRD-<timestamp>
     const sku = `PRD-${Date.now()}`;
-    const variant = await db.query(
-      `INSERT INTO product_variants(product_id,sku,color,size,selling_price,cost_price,reorder_threshold,active)
-       VALUES($1,$2,$3,$4,$5,$6,$7,true) RETURNING id,sku`,
-      [productId, sku, input.color ?? null, input.size ?? null,
-       input.sellingPrice, input.costPrice ?? '0', input.reorderLevel]
+    const product = await db.query(
+      `INSERT INTO products(sku, product_name, selling_price, cost_price, color, size, reorder_level, is_active)
+       VALUES($1,$2,$3,$4,$5,$6,$7,true) RETURNING id, sku, product_name`,
+      [sku, input.name, input.sellingPrice, input.costPrice ?? '0',
+       input.color ?? null, input.size ?? null, input.reorderLevel]
     );
-    await audit(db, request.actor, { action: 'PRODUCT_CREATED', entityType: 'product', entityId: variant.rows[0].id, newValue: { name: input.name, sku }, ip: clientIp(request), requestId: request.id });
-    return { id: variant.rows[0].id, sku: variant.rows[0].sku, name: input.name };
+    await audit(db, request.actor, { action: 'PRODUCT_CREATED', entityType: 'product', entityId: product.rows[0].id, newValue: { name: input.name, sku }, ip: clientIp(request), requestId: request.id });
+    return { id: product.rows[0].id, sku: product.rows[0].sku, name: product.rows[0].product_name };
   });
   return reply.status(201).send({ data: result });
 });
@@ -262,14 +254,13 @@ app.delete('/api/v1/inventory/products/:id', { preHandler: requirePermission('pr
   const { id } = request.params as { id: string };
   const actor = request.actor!;
   if (!isAdmin(actor)) {
-    // Log the unauthorised attempt and return 403
     await transaction(db => audit(db, actor, { action: 'PRODUCT_DELETE_DENIED', entityType: 'product', entityId: id, newValue: { attemptedBy: actor.loginName, roles: actor.roles }, ip: clientIp(request), requestId: request.id }));
     throw new AppError(403, 'Only admin can delete products. This attempt has been logged.', 'FORBIDDEN');
   }
   await transaction(async db => {
-    const r = await db.query('UPDATE product_variants SET active=false WHERE id=$1 RETURNING id,sku', [id]);
+    const r = await db.query('UPDATE products SET is_active=false WHERE id=$1 RETURNING id,sku,product_name', [id]);
     if (!r.rowCount) throw new AppError(404, 'Product not found.', 'NOT_FOUND');
-    await audit(db, actor, { action: 'PRODUCT_DELETED', entityType: 'product', entityId: id, newValue: { sku: r.rows[0].sku }, ip: clientIp(request), requestId: request.id });
+    await audit(db, actor, { action: 'PRODUCT_DELETED', entityType: 'product', entityId: id, newValue: { sku: r.rows[0].sku, name: r.rows[0].product_name }, ip: clientIp(request), requestId: request.id });
   });
   return reply.status(204).send();
 });
@@ -285,8 +276,9 @@ const stockReceiptSchema = z.object({
 app.post('/api/v1/inventory/stock', { preHandler: requirePermission('inventory.adjust') }, async (request, reply) => {
   const input = stockReceiptSchema.parse(request.body);
   const result = await transaction(async db => {
-    const variant = await db.query('SELECT id,sku FROM product_variants WHERE id=$1 AND active FOR UPDATE', [input.variantId]);
-    if (!variant.rowCount) throw new AppError(404, 'Product variant not found.', 'NOT_FOUND');
+    // In this schema, products.id is stored directly in inventory_balances.variant_id
+    const product = await db.query('SELECT id,sku,product_name FROM products WHERE id=$1 AND is_active FOR UPDATE', [input.variantId]);
+    if (!product.rowCount) throw new AppError(404, 'Product not found.', 'NOT_FOUND');
     const location = await db.query('SELECT id,name FROM locations WHERE id=$1 AND active', [input.locationId]);
     if (!location.rowCount) throw new AppError(404, 'Location not found.', 'NOT_FOUND');
     await db.query('INSERT INTO inventory_balances(variant_id,location_id,quantity) VALUES($1,$2,0) ON CONFLICT DO NOTHING', [input.variantId, input.locationId]);
@@ -294,13 +286,14 @@ app.post('/api/v1/inventory/stock', { preHandler: requirePermission('inventory.a
     const before = Number(bal.rows[0].quantity);
     const after = before + input.quantity;
     await db.query('UPDATE inventory_balances SET quantity=$1,updated_at=now() WHERE variant_id=$2 AND location_id=$3', [after, input.variantId, input.locationId]);
+    // Log movement — inventory_movements.variant_id also stores products.id here
     const movement = await db.query(
       `INSERT INTO inventory_movements(variant_id,location_id,movement_type,quantity_delta,quantity_before,quantity_after,reference_type,reason,performed_by)
        VALUES($1,$2,'STOCK_RECEIPT',$3,$4,$5,'MANUAL_RECEIPT',$6,$7) RETURNING id`,
       [input.variantId, input.locationId, input.quantity, before, after, input.reason, request.actor!.id]
     );
-    await audit(db, request.actor, { action: 'STOCK_RECEIVED', entityType: 'inventory_movement', entityId: movement.rows[0].id, newValue: { sku: variant.rows[0].sku, location: location.rows[0].name, qty: input.quantity, before, after }, reason: input.reason, ip: clientIp(request), requestId: request.id });
-    return { variantId: input.variantId, locationId: input.locationId, sku: variant.rows[0].sku, before, after };
+    await audit(db, request.actor, { action: 'STOCK_RECEIVED', entityType: 'inventory_movement', entityId: movement.rows[0].id, newValue: { sku: product.rows[0].sku, location: location.rows[0].name, qty: input.quantity, before, after }, reason: input.reason, ip: clientIp(request), requestId: request.id });
+    return { productId: input.variantId, locationId: input.locationId, sku: product.rows[0].sku, before, after };
   });
   return reply.status(201).send({ data: result });
 });
@@ -375,12 +368,11 @@ app.get('/api/v1/reports/stock-movements', { preHandler: requirePermission('audi
     `SELECT
        m.id, m.movement_type, m.quantity_delta, m.quantity_before, m.quantity_after,
        m.reason, m.created_at,
-       v.sku, p.name AS product_name,
+       p.sku, p.product_name AS product_name,
        l.name AS location_name,
        u.display_name AS performed_by
      FROM inventory_movements m
-     JOIN product_variants v ON v.id=m.variant_id
-     JOIN products p ON p.id=v.product_id
+     JOIN products p ON p.id=m.variant_id
      JOIN locations l ON l.id=m.location_id
      LEFT JOIN users u ON u.id=m.performed_by
      WHERE m.created_at >= now() - $1::interval
