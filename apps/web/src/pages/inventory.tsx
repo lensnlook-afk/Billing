@@ -68,6 +68,7 @@ function TypeBadge({ type }: { type: string }) {
 function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     name: '',
+    productType: 'FRAME',
     sellingPrice: '', costPrice: '',
     color: '', size: '', reorderLevel: '5',
   });
@@ -87,6 +88,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
         method: 'POST',
         body: JSON.stringify({
           name: form.name,
+          productType: form.productType,
           sellingPrice: form.sellingPrice,
           costPrice: form.costPrice || undefined,
           color: form.color || undefined,
@@ -113,6 +115,17 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <div className="form-group">
             <label>Product Name *</label>
             <input value={form.name} onChange={set('name')} placeholder="e.g. Ray-Ban Aviator" required autoFocus />
+          </div>
+          <div className="form-group">
+            <label>Category *</label>
+            <select value={form.productType} onChange={set('productType')}>
+              <option value="FRAME">Frame</option>
+              <option value="LENS">Lens</option>
+              <option value="CONTACT_LENS">Contact Lens</option>
+              <option value="ACCESSORY">Accessory</option>
+              <option value="SERVICE">Service</option>
+              <option value="OTHER">Other</option>
+            </select>
           </div>
           <div className="form-row">
             <div className="form-group">

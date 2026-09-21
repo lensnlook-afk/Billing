@@ -226,6 +226,7 @@ app.get('/api/v1/inventory/stores', { preHandler: requirePermission('inventory.r
 // Add Product — uses original products+product_variants schema
 const productSchema = z.object({
   name: z.string().trim().min(2).max(200),
+  productType: z.enum(['FRAME','LENS','CONTACT_LENS','ACCESSORY','SERVICE','OTHER']).default('FRAME'),
   sellingPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
   costPrice: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
   color: z.string().max(80).optional(),
@@ -238,9 +239,9 @@ app.post('/api/v1/inventory/products', { preHandler: requirePermission('products
   const result = await transaction(async db => {
     const sku = `PRD-${Date.now()}`;
     const product = await db.query(
-      `INSERT INTO products(organization_id, sku, product_name, selling_price, cost_price, color, size, reorder_level, is_active)
-       VALUES('11111111-0000-0000-0000-000000000001',$1,$2,$3,$4,$5,$6,$7,true) RETURNING id, sku, product_name`,
-      [sku, input.name, input.sellingPrice, input.costPrice ?? '0',
+      `INSERT INTO products(organization_id, sku, product_type, product_name, selling_price, cost_price, color, size, reorder_level, is_active)
+       VALUES('11111111-0000-0000-0000-000000000001',$1,$2,$3,$4,$5,$6,$7,$8,true) RETURNING id, sku, product_name`,
+      [sku, input.productType, input.name, input.sellingPrice, input.costPrice ?? '0',
        input.color ?? null, input.size ?? null, input.reorderLevel]
     );
     await audit(db, request.actor, { action: 'PRODUCT_CREATED', entityType: 'product', entityId: product.rows[0].id, newValue: { name: input.name, sku }, ip: clientIp(request), requestId: request.id });
