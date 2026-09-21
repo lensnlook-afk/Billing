@@ -130,11 +130,12 @@ app.get('/api/v1/customers/:id', { preHandler: requirePermission('customers.read
 app.post('/api/v1/customers', { preHandler: requirePermission('customers.write') }, async (request, reply) => {
   const input = customerSchema.parse(request.body);
   const result = await transaction(async db => {
+    const code = `CUST-${Date.now()}`;
     const customer = await db.query(
-      `INSERT INTO customers(organization_id, full_name, phone, email, address, created_by)
-       VALUES('11111111-0000-0000-0000-000000000001',$1,$2,$3,$4,$5)
+      `INSERT INTO customers(organization_id, customer_code, full_name, phone, email, address, created_by)
+       VALUES('11111111-0000-0000-0000-000000000001',$1,$2,$3,$4,$5,$6)
        RETURNING id, customer_code, full_name, phone, email`,
-      [input.fullName, input.phone ?? null, input.email ?? null, input.address ?? null, request.actor!.id]
+      [code, input.fullName, input.phone ?? null, input.email ?? null, input.address ?? null, request.actor!.id]
     );
     await audit(db, request.actor, { action: 'CUSTOMER_CREATED', entityType: 'customer', entityId: customer.rows[0].id, newValue: customer.rows[0], ip: clientIp(request), requestId: request.id });
     return customer.rows[0];
