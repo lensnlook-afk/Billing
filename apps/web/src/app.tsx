@@ -47,7 +47,7 @@ export function App() {
   function navigate(s: string) { setScreen(s); setShowMore(false); }
 
   let content: React.ReactNode;
-  if      (screen === 'Billing')    content = <Pos />;
+  else if (screen === 'Inventory')  content = <Inventory isAdmin={isAdmin} />;
   else if (screen === 'Dashboard')  content = <Dashboard />;
   else if (screen === 'Inventory')  content = <Inventory />;
   else if (screen === 'Customers')  content = <Customers />;

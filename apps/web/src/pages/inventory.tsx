@@ -252,7 +252,7 @@ function AddStockModal({
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export function Inventory() {
+export function Inventory({ isAdmin = false }: { isAdmin?: boolean }) {
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const [stores, setStores] = useState<StoreLocation[]>([]);
   const [query, setQuery] = useState('');
@@ -263,8 +263,17 @@ export function Inventory() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [stockTarget, setStockTarget] = useState<InventoryProduct | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
+  async function deleteProduct(p: InventoryProduct) {
+    if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    try {
+      await req(`/api/v1/inventory/products/${p.product_id}`, { method: 'DELETE' });
+      void load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+    }
+  }
+
+  const load = useCallback(async () => {    setLoading(true); setError('');
     try {
       const params = new URLSearchParams();
       if (query) params.set('q', query);
@@ -389,7 +398,16 @@ export function Inventory() {
                         </div>
                       </td>
                       <td>
-                        <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
+                          {isAdmin && (
+                            <button
+                              className="inv-add-stock-btn"
+                              style={{ borderColor: '#dc2626', color: '#dc2626' }}
+                              onClick={() => deleteProduct(p)}
+                            >Delete</button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -409,7 +427,16 @@ export function Inventory() {
                       {p.name}
                       {isLow && <span className="inv-low-badge" style={{ marginLeft: 6 }}>Low stock</span>}
                     </div>
-                    <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
+                      {isAdmin && (
+                        <button
+                          className="inv-add-stock-btn"
+                          style={{ borderColor: '#dc2626', color: '#dc2626' }}
+                          onClick={() => deleteProduct(p)}
+                        >Delete</button>
+                      )}
+                    </div>
                   </div>
                   <div className="inv-card-meta">
                     <code className="inv-sku">{p.sku}</code>

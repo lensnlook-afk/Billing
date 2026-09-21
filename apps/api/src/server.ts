@@ -97,22 +97,21 @@ app.get('/api/v1/dashboard', { preHandler: requirePermission('dashboard.read') }
 
 // ── Customers ─────────────────────────────────────────────────────────────────
 const customerSchema = z.object({
-  name: z.string().trim().min(2).max(160),
-  mobile: z.string().trim().regex(/^[0-9+ \-]{7,20}$/).optional(),
+  fullName: z.string().trim().min(2).max(160),
+  phone: z.string().trim().regex(/^[0-9+ \-]{7,20}$/).optional(),
   email: z.string().email().optional(),
   address: z.string().max(1000).optional(),
-  notes: z.string().max(2000).optional(),
 });
 
 app.get('/api/v1/customers', { preHandler: requirePermission('customers.read') }, async request => {
   const { q = '', limit = '50' } = request.query as { q?: string; limit?: string };
   const safe = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const result = await pool.query(
-    `SELECT id, customer_no, name, mobile, email, address, notes, created_at
+    `SELECT id, customer_code, full_name, phone, email, address, created_at
      FROM customers
-     WHERE archived_at IS NULL
-       AND ($1='' OR name ILIKE '%'||$1||'%' OR mobile ILIKE '%'||$1||'%' OR customer_no::text=$1)
-     ORDER BY name LIMIT $2`,
+     WHERE deleted_at IS NULL
+       AND ($1='' OR full_name ILIKE '%'||$1||'%' OR phone ILIKE '%'||$1||'%' OR customer_code ILIKE '%'||$1||'%')
+     ORDER BY full_name LIMIT $2`,
     [q.trim(), safe]
   );
   return { data: result.rows };
@@ -121,7 +120,7 @@ app.get('/api/v1/customers', { preHandler: requirePermission('customers.read') }
 app.get('/api/v1/customers/:id', { preHandler: requirePermission('customers.read') }, async request => {
   const { id } = request.params as { id: string };
   const [cust, invoices] = await Promise.all([
-    pool.query(`SELECT id,customer_no,name,mobile,email,address,notes,created_at FROM customers WHERE id=$1 AND archived_at IS NULL`, [id]),
+    pool.query(`SELECT id,customer_code,full_name,phone,email,address,created_at FROM customers WHERE id=$1 AND deleted_at IS NULL`, [id]),
     pool.query(`SELECT i.id,i.invoice_number,i.grand_total,i.amount_paid,i.amount_due,i.payment_status,i.created_at, u.display_name AS cashier FROM invoices i JOIN users u ON u.id=i.cashier_id WHERE i.customer_id=$1 ORDER BY i.created_at DESC LIMIT 50`, [id]),
   ]);
   if (!cust.rows[0]) throw new AppError(404, 'Customer not found.', 'NOT_FOUND');
@@ -132,8 +131,10 @@ app.post('/api/v1/customers', { preHandler: requirePermission('customers.write')
   const input = customerSchema.parse(request.body);
   const result = await transaction(async db => {
     const customer = await db.query(
-      `INSERT INTO customers(name,mobile,email,address,notes) VALUES($1,$2,$3,$4,$5) RETURNING id,customer_no,name,mobile,email`,
-      [input.name, input.mobile ?? null, input.email ?? null, input.address ?? null, input.notes ?? null]
+      `INSERT INTO customers(organization_id, full_name, phone, email, address, created_by)
+       VALUES('11111111-0000-0000-0000-000000000001',$1,$2,$3,$4,$5)
+       RETURNING id, customer_code, full_name, phone, email`,
+      [input.fullName, input.phone ?? null, input.email ?? null, input.address ?? null, request.actor!.id]
     );
     await audit(db, request.actor, { action: 'CUSTOMER_CREATED', entityType: 'customer', entityId: customer.rows[0].id, newValue: customer.rows[0], ip: clientIp(request), requestId: request.id });
     return customer.rows[0];
@@ -144,12 +145,18 @@ app.post('/api/v1/customers', { preHandler: requirePermission('customers.write')
 app.patch('/api/v1/customers/:id', { preHandler: requirePermission('customers.write') }, async request => {
   const { id } = request.params as { id: string };
   const input = customerSchema.partial().parse(request.body);
-  const existing = await pool.query('SELECT * FROM customers WHERE id=$1 AND archived_at IS NULL', [id]);
+  const existing = await pool.query('SELECT * FROM customers WHERE id=$1 AND deleted_at IS NULL', [id]);
   if (!existing.rows[0]) throw new AppError(404, 'Customer not found.', 'NOT_FOUND');
   const updated = await transaction(async db => {
     const r = await db.query(
-      `UPDATE customers SET name=COALESCE($1,name),mobile=COALESCE($2,mobile),email=COALESCE($3,email),address=COALESCE($4,address),notes=COALESCE($5,notes),updated_at=now() WHERE id=$6 RETURNING id,customer_no,name,mobile,email`,
-      [input.name ?? null, input.mobile ?? null, input.email ?? null, input.address ?? null, input.notes ?? null, id]
+      `UPDATE customers SET
+         full_name=COALESCE($1,full_name),
+         phone=COALESCE($2,phone),
+         email=COALESCE($3,email),
+         address=COALESCE($4,address),
+         updated_at=now()
+       WHERE id=$5 RETURNING id,customer_code,full_name,phone,email`,
+      [input.fullName ?? null, input.phone ?? null, input.email ?? null, input.address ?? null, id]
     );
     await audit(db, request.actor, { action: 'CUSTOMER_UPDATED', entityType: 'customer', entityId: id, previousValue: existing.rows[0], newValue: input, ip: clientIp(request), requestId: request.id });
     return r.rows[0];
@@ -347,8 +354,8 @@ app.get('/api/v1/reports/invoices', { preHandler: requirePermission('audit.read'
        i.id, i.invoice_number, i.grand_total, i.amount_paid, i.amount_due,
        i.payment_status, i.created_at,
        u.display_name AS cashier,
-       c.name AS customer_name,
-       c.mobile AS customer_mobile
+       c.full_name AS customer_name,
+       c.phone AS customer_mobile
      FROM invoices i
      JOIN users u ON u.id=i.cashier_id
      LEFT JOIN customers c ON c.id=i.customer_id
