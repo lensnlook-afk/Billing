@@ -390,7 +390,7 @@ export function Inventory() {
                         {isLow && <div className="inv-low-badge">Low stock</div>}
                       </td>
                       <td><code className="inv-sku">{p.sku}</code></td>
-                      <td><TypeBadge type={p.type} /></td>
+                      <td>{p.type && <TypeBadge type={p.type} />}</td>
                       <td style={{ textAlign: 'right', fontWeight: 700 }}>{rupees(p.selling_price)}</td>
                       <td style={{ textAlign: 'right', color: '#64748b' }}>{rupees(p.cost_price)}</td>
                       <td style={{ textAlign: 'center' }}>
@@ -432,7 +432,7 @@ export function Inventory() {
                   </div>
                   <div className="inv-card-meta">
                     <code className="inv-sku">{p.sku}</code>
-                    <TypeBadge type={p.type} />
+                    {p.type && <TypeBadge type={p.type} />}
                   </div>
                   <div className="inv-card-stats">
                     <div className="inv-card-stat">
