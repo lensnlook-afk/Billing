@@ -15,8 +15,8 @@ export async function postSale(db: Db, actor: Actor, input: SaleInput, idempoten
     if (record.status_code && record.response_body) return record.response_body as Reply;
     throw new AppError(409, 'A matching request is still being processed. Retry shortly.', 'REQUEST_IN_PROGRESS');
   }
-  if (input.customerId) { const customer = await db.query('SELECT id FROM customers WHERE id=$1 AND archived_at IS NULL', [input.customerId]); if (!customer.rowCount) throw new AppError(404, 'Customer was not found.', 'CUSTOMER_NOT_FOUND'); }
-  const ids = input.items.map(item => item.variantId); const products = await db.query(`SELECT v.id,v.sku,v.selling_price,p.tax_rate,p.name,v.variant,v.color FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=ANY($1::uuid[]) AND v.active AND p.active FOR UPDATE`, [ids]);
+  if (input.customerId) { const customer = await db.query('SELECT id FROM customers WHERE id=$1 AND deleted_at IS NULL', [input.customerId]); if (!customer.rowCount) throw new AppError(404, 'Customer was not found.', 'CUSTOMER_NOT_FOUND'); }
+  const ids = input.items.map(item => item.variantId); const products = await db.query(`SELECT v.id,v.sku,v.selling_price,p.tax_rate,p.product_name AS name,v.variant,v.color FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=ANY($1::uuid[]) AND v.active AND p.is_active FOR UPDATE`, [ids]);
   if (products.rowCount !== ids.length || new Set(ids).size !== ids.length) throw new AppError(422, 'One or more products are unavailable.', 'PRODUCT_UNAVAILABLE');
   await db.query(`INSERT INTO inventory_balances(variant_id,location_id,quantity) SELECT unnest($1::uuid[]),$2,0 ON CONFLICT DO NOTHING`, [ids,input.locationId]);
   const balances = await db.query(`SELECT variant_id,quantity FROM inventory_balances WHERE location_id=$1 AND variant_id=ANY($2::uuid[]) FOR UPDATE`, [input.locationId,ids]); const quantities = new Map(balances.rows.map(row => [row.variant_id, row.quantity as number]));

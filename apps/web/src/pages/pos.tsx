@@ -3,23 +3,25 @@ import { api, type Customer, type Product } from '../api/client';
 
 type CartLine = { product: Product; quantity: number };
 type PosView = 'catalog' | 'cart';
+type PaymentMode = 'full' | 'advance' | 'custom';
 
 const rupees = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n);
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n);
 
 export function Pos() {
-  const [query, setQuery] = useState('');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartLine[]>([]);
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [query, setQuery]               = useState('');
+  const [products, setProducts]         = useState<Product[]>([]);
+  const [cart, setCart]                 = useState<CartLine[]>([]);
+  const [customer, setCustomer]         = useState<Customer | null>(null);
   const [customerQuery, setCustomerQuery] = useState('');
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [location, setLocation] = useState('');
-  const [payment, setPayment] = useState('');
-  const [method, setMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER' | 'OTHER'>('UPI');
-  const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [mobileView, setMobileView] = useState<PosView>('catalog');
+  const [customers, setCustomers]       = useState<Customer[]>([]);
+  const [location, setLocation]         = useState('');
+  const [paymentMode, setPaymentMode]   = useState<PaymentMode>('full');
+  const [customAmount, setCustomAmount] = useState('');
+  const [method, setMethod]             = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER' | 'OTHER'>('UPI');
+  const [notice, setNotice]             = useState('');
+  const [busy, setBusy]                 = useState(false);
+  const [mobileView, setMobileView]     = useState<PosView>('catalog');
 
   useEffect(() => {
     api.locations().then(x => setLocation(x.data[0]?.id ?? ''));
@@ -45,8 +47,18 @@ export function Pos() {
     [cart]
   );
 
+  // Payment amount math
+  const paid = useMemo(() => {
+    if (paymentMode === 'full')    return subtotal;
+    if (paymentMode === 'advance') return 0;
+    return Math.min(Number(customAmount || 0), subtotal);
+  }, [paymentMode, customAmount, subtotal]);
+
+  const balance = Math.max(0, subtotal - paid);
+
   const add = (product: Product) => {
     if (product.stock < 1) { setNotice('This item has no available stock.'); return; }
+    setNotice('');
     setCart(c => {
       const found = c.find(x => x.product.id === product.id);
       return found
@@ -55,16 +67,11 @@ export function Pos() {
             : x)
         : [...c, { product, quantity: 1 }];
     });
-    // Auto-switch to cart view on mobile after adding first item
     setMobileView('cart');
   };
 
-  const paid = Number(payment || 0);
-  const due  = Math.max(0, subtotal - paid);
-
   const checkout = async () => {
     if (!cart.length || !location) return;
-    if (paid > subtotal) { setNotice('Payment cannot exceed total.'); return; }
     setBusy(true); setNotice('');
     try {
       const outcome = await api.postInvoice(
@@ -72,12 +79,14 @@ export function Pos() {
           customerId: customer?.id,
           locationId: location,
           items: cart.map(x => ({ variantId: x.product.id, quantity: x.quantity })),
-          payments: paid ? [{ amount: paid.toFixed(2), method }] : [],
+          payments: paid > 0 ? [{ amount: paid.toFixed(2), method }] : [],
         },
         crypto.randomUUID() + crypto.randomUUID().replace('-', '')
       );
-      setNotice(`✓ ${outcome.data.invoiceNumber} posted · ${outcome.data.paymentStatus.replace('_', ' ')}`);
-      setCart([]); setPayment(''); setCustomer(null);
+      const d = outcome.data;
+      setNotice(`✓ ${d.invoiceNumber} · Paid ${rupees(Number(d.amountPaid))} · Balance ${rupees(Number(d.amountDue))}`);
+      setCart([]); setCustomAmount(''); setCustomer(null);
+      setPaymentMode('full');
       setMobileView('catalog');
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'Could not post invoice');
@@ -88,7 +97,7 @@ export function Pos() {
 
   return (
     <div className="pos">
-      {/* ── Mobile view toggle ── */}
+      {/* Mobile view toggle */}
       <div className="pos-mobile-tabs">
         <button
           className={`pos-mobile-tab${mobileView === 'catalog' ? ' active' : ''}`}
@@ -112,21 +121,19 @@ export function Pos() {
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search product or SKU…"
+            placeholder="Search by product name…"
           />
-          {query && (
-            <button className="search-clear" onClick={() => setQuery('')}>✕</button>
-          )}
+          {query && <button className="search-clear" onClick={() => setQuery('')}>✕</button>}
         </div>
 
         {/* Customer */}
         <div className="customer-row">
           <label>
-            Customer
+            Customer (optional)
             <input
               value={customer?.full_name ?? customerQuery}
               onChange={e => { setCustomer(null); setCustomerQuery(e.target.value); }}
-              placeholder="Optional — search by name or mobile"
+              placeholder="Search by name or mobile"
             />
           </label>
           {customer && (
@@ -147,13 +154,18 @@ export function Pos() {
         {/* Products */}
         <div className="product-grid">
           {products.map(product => (
-            <button className="product" key={product.id} onClick={() => add(product)} disabled={product.stock < 1}>
+            <button
+              className="product"
+              key={product.id}
+              onClick={() => add(product)}
+              disabled={product.stock < 1}
+            >
               <span className={`stock${product.stock > 0 ? '' : ' empty'}`}>
                 {product.stock > 0 ? `${product.stock} left` : 'Out of stock'}
               </span>
               <strong>{product.name}</strong>
-              {(product.variant || product.color) && (
-                <small>{[product.variant, product.color].filter(Boolean).join(' · ')}</small>
+              {(product.color || product.size) && (
+                <small>{[product.color, product.size].filter(Boolean).join(' · ')}</small>
               )}
               <b>{rupees(Number(product.selling_price))}</b>
             </button>
@@ -162,16 +174,18 @@ export function Pos() {
         </div>
       </div>
 
-      {/* ── Right: cart ── */}
+      {/* ── Right: cart / bill ── */}
       <div className={`cart${mobileView === 'cart' ? ' mob-active' : ' mob-hidden'}`}>
         <div className="cart-header">
           <div>
-            <h3>Current sale</h3>
+            <h3>Current Bill</h3>
             <div className="customer-tag">
               {customer ? `👤 ${customer.full_name}` : 'Walk-in customer'}
             </div>
           </div>
-          <button className="cart-clear-btn" onClick={() => { setCart([]); setNotice(''); }} disabled={!cart.length}>Clear</button>
+          <button className="cart-clear-btn" onClick={() => { setCart([]); setNotice(''); }} disabled={!cart.length}>
+            Clear
+          </button>
         </div>
 
         <div className="cart-lines">
@@ -179,7 +193,10 @@ export function Pos() {
             <div className="cart-line" key={line.product.id}>
               <div className="cart-line-info">
                 <div className="cart-line-name">{line.product.name}</div>
-                <div className="cart-line-sku">{line.product.sku} · {rupees(Number(line.product.selling_price))}</div>
+                {(line.product.color || line.product.size) && (
+                  <div className="cart-line-sku">{[line.product.color, line.product.size].filter(Boolean).join(' · ')}</div>
+                )}
+                <div className="cart-line-sku">{rupees(Number(line.product.selling_price))} each</div>
                 <div className="qty">
                   <button onClick={() => setCart(c =>
                     c.map(x => x.product.id === line.product.id ? { ...x, quantity: x.quantity - 1 } : x)
@@ -209,41 +226,90 @@ export function Pos() {
 
         {cart.length > 0 && (
           <div className="cart-footer">
-            <div className="totals-row"><span>Subtotal</span><span>{rupees(subtotal)}</span></div>
-            <div className="totals-row grand"><span>Amount due</span><span>{rupees(due)}</span></div>
+            {/* Totals */}
+            <div className="totals-row"><span>Total</span><strong>{rupees(subtotal)}</strong></div>
 
-            <div className="payment-section">
-              <label>
-                Receive payment
-                <input
-                  inputMode="decimal"
-                  value={payment}
-                  onChange={e => setPayment(e.target.value.replace(/[^0-9.]/g, ''))}
-                  placeholder="0.00"
-                />
-              </label>
+            {/* Payment mode */}
+            <div className="payment-mode-section">
+              <div className="payment-mode-label">Payment</div>
+              <div className="payment-mode-pills">
+                <button
+                  className={`payment-mode-pill${paymentMode === 'full' ? ' active' : ''}`}
+                  onClick={() => { setPaymentMode('full'); setCustomAmount(''); }}
+                >
+                  Full — {rupees(subtotal)}
+                </button>
+                <button
+                  className={`payment-mode-pill${paymentMode === 'advance' ? ' active' : ''}`}
+                  onClick={() => { setPaymentMode('advance'); setCustomAmount(''); }}
+                >
+                  No payment
+                </button>
+                <button
+                  className={`payment-mode-pill${paymentMode === 'custom' ? ' active' : ''}`}
+                  onClick={() => setPaymentMode('custom')}
+                >
+                  Advance / Part
+                </button>
+              </div>
+
+              {paymentMode === 'custom' && (
+                <div className="custom-amount-row">
+                  <span className="rupee-prefix">₹</span>
+                  <input
+                    className="custom-amount-input"
+                    inputMode="decimal"
+                    value={customAmount}
+                    onChange={e => setCustomAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                    placeholder="Enter amount paid now"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="method-pills">
-              {(['UPI', 'CASH', 'CARD'] as const).map(m => (
-                <button
-                  key={m}
-                  className={method === m ? 'selected' : ''}
-                  onClick={() => setMethod(m)}
-                >{m}</button>
-              ))}
+            {/* Balance summary */}
+            <div className="balance-summary">
+              <div className="balance-row">
+                <span>Paid now</span>
+                <strong className="paid-now">{rupees(paid)}</strong>
+              </div>
+              <div className="balance-row">
+                <span>Balance due</span>
+                <strong className={balance > 0 ? 'balance-due' : 'balance-zero'}>
+                  {rupees(balance)}
+                </strong>
+              </div>
+            </div>
+
+            {/* Payment method */}
+            <div className="method-section">
+              <div className="payment-mode-label">Method</div>
+              <div className="method-pills">
+                {(['UPI', 'CASH', 'CARD'] as const).map(m => (
+                  <button
+                    key={m}
+                    className={method === m ? 'selected' : ''}
+                    onClick={() => setMethod(m)}
+                  >{m}</button>
+                ))}
+              </div>
             </div>
 
             <button
               className="checkout-btn"
-              disabled={!cart.length || busy}
+              disabled={busy}
               onClick={checkout}
             >
-              {busy ? 'Posting secure sale…' : `Collect ${rupees(paid)} & post invoice`}
+              {busy
+                ? 'Posting…'
+                : paymentMode === 'advance'
+                ? 'Post Bill (Unpaid)'
+                : `Collect ${rupees(paid)} & Post Bill`}
             </button>
 
             {notice && (
-              <p className={notice.startsWith('✓') ? 'success' : 'error'}>{notice}</p>
+              <p className={notice.startsWith('✓') ? 'success' : 'error'} style={{ fontSize: 13 }}>{notice}</p>
             )}
           </div>
         )}

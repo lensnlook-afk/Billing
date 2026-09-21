@@ -787,3 +787,50 @@ aside footer button:hover { background: rgba(255,255,255,.08); color: #fff; }
   .report-invoice-right { flex-direction: row; gap: 8px; align-items: center; flex-wrap: wrap; }
   .cust-info-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* =============================================================
+   POS PAYMENT SECTION
+   ============================================================= */
+.payment-mode-section { display: flex; flex-direction: column; gap: 8px; }
+.payment-mode-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
+.payment-mode-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.payment-mode-pill {
+  flex: 1; border: 1.5px solid #e2e8f0; background: #fff;
+  border-radius: 9px; padding: 9px 10px; font-size: 13px; font-weight: 600;
+  color: #475569; cursor: pointer; transition: all .12s; text-align: center;
+  min-height: 42px;
+}
+.payment-mode-pill.active { background: #1c64f2; color: #fff; border-color: #1c64f2; }
+
+.custom-amount-row {
+  display: flex; align-items: center; gap: 0;
+  border: 1.5px solid #1c64f2; border-radius: 10px; overflow: hidden;
+  background: #fff;
+}
+.rupee-prefix {
+  padding: 0 12px; font-size: 18px; font-weight: 700; color: #64748b;
+  background: #f8fafc; border-right: 1.5px solid #e2e8f0; height: 52px;
+  display: flex; align-items: center;
+}
+.custom-amount-input {
+  flex: 1; border: 0; outline: none; padding: 14px;
+  font-size: 22px; font-weight: 700; color: #0f172a; background: transparent;
+}
+
+.balance-summary {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.balance-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #475569; }
+.paid-now { font-size: 16px; font-weight: 800; color: #16a34a; }
+.balance-due { font-size: 16px; font-weight: 800; color: #dc2626; }
+.balance-zero { font-size: 16px; font-weight: 800; color: #16a34a; }
+
+.method-section { display: flex; flex-direction: column; gap: 6px; }
+
+@media (max-width: 768px) {
+  .payment-mode-pill { font-size: 12px; padding: 8px 6px; }
+  .custom-amount-input { font-size: 20px; }
+  .balance-row { font-size: 13px; }
+  .paid-now, .balance-due, .balance-zero { font-size: 15px; }
+}
