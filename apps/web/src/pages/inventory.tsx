@@ -21,6 +21,8 @@ interface InventoryProduct {
   available: number;
   reserved: number;
   damaged: number;
+  stock_value: string;
+  created_at: string;
   locations: LocationStock[] | null;
 }
 
@@ -294,7 +296,8 @@ export function Inventory({ isAdmin = false }: { isAdmin?: boolean }) {
   useEffect(() => { void load(); }, [load]);
 
   const filtered = filterType ? products.filter(p => p.type === filterType) : products;
-  const totalValue = products.reduce((s, p) => s + Number(p.selling_price) * p.total_stock, 0);
+  // Use cost_price × stock (server computes stock_value = cost_price × total_stock)
+  const totalValue = products.reduce((s, p) => s + Number(p.stock_value ?? 0), 0);
   const lowStockCount = products.filter(p => p.total_stock <= p.reorder_level).length;
 
   return (
@@ -367,6 +370,7 @@ export function Inventory({ isAdmin = false }: { isAdmin?: boolean }) {
                   <th style={{ textAlign: 'center' }}>Available</th>
                   <th style={{ textAlign: 'center' }}>Reserved</th>
                   <th>Stores</th>
+                  <th>Added</th>
                   <th></th>
                 </tr>
               </thead>
@@ -396,6 +400,11 @@ export function Inventory({ isAdmin = false }: { isAdmin?: boolean }) {
                             </span>
                           ))}
                         </div>
+                      </td>
+                      <td style={{ color: '#94a3b8', fontSize: 11, whiteSpace: 'nowrap' }}>
+                        {new Date(p.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        <br />
+                        <span style={{ fontSize: 10 }}>{new Date(p.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -465,6 +474,9 @@ export function Inventory({ isAdmin = false }: { isAdmin?: boolean }) {
                       ))}
                     </div>
                   )}
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
+                    Added: {new Date(p.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               );
             })}

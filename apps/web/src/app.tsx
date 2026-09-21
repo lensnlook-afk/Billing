@@ -6,6 +6,7 @@ import { Dashboard } from './pages/dashboard';
 import { Inventory } from './pages/inventory';
 import { Customers } from './pages/customers';
 import { Reports } from './pages/reports';
+import { AuditLogs } from './pages/auditlogs';
 
 // Primary tabs shown in bottom nav
 const PRIMARY_TABS = [
@@ -56,6 +57,13 @@ export function App() {
     <section className="empty">
       <h1>Access Denied</h1>
       <p>Reports are only available to admin users.</p>
+    </section>
+  );
+  else if (screen === 'Audit Logs' && isAdmin) content = <AuditLogs />;
+  else if (screen === 'Audit Logs' && !isAdmin) content = (
+    <section className="empty">
+      <h1>Access Denied</h1>
+      <p>Audit logs are only available to admin users.</p>
     </section>
   );
   else content = (

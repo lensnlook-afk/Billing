@@ -203,10 +203,12 @@ app.get('/api/v1/inventory', { preHandler: requirePermission('inventory.read') }
        p.cost_price,
        p.tax_rate,
        p.reorder_level,
+       p.created_at,
        COALESCE(SUM(b.quantity),0)::int AS total_stock,
        COALESCE(SUM(b.quantity),0)::int AS available,
        0 AS reserved,
        0 AS damaged,
+       COALESCE(SUM(b.quantity),0) * COALESCE(p.cost_price, p.selling_price) AS stock_value,
        json_agg(json_build_object(
          'store_id',   l.id,
          'store_name', l.name,
