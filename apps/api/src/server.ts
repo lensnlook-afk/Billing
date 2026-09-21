@@ -238,8 +238,8 @@ app.post('/api/v1/inventory/products', { preHandler: requirePermission('products
   const result = await transaction(async db => {
     const sku = `PRD-${Date.now()}`;
     const product = await db.query(
-      `INSERT INTO products(sku, product_name, selling_price, cost_price, color, size, reorder_level, is_active)
-       VALUES($1,$2,$3,$4,$5,$6,$7,true) RETURNING id, sku, product_name`,
+      `INSERT INTO products(organization_id, sku, product_name, selling_price, cost_price, color, size, reorder_level, is_active)
+       VALUES('11111111-0000-0000-0000-000000000001',$1,$2,$3,$4,$5,$6,$7,true) RETURNING id, sku, product_name`,
       [sku, input.name, input.sellingPrice, input.costPrice ?? '0',
        input.color ?? null, input.size ?? null, input.reorderLevel]
     );
