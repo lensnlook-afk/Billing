@@ -97,7 +97,7 @@ function CustomerModal({ customer, onClose, onSaved }: {
           <div className="form-row">
             <div className="form-group">
               <label>Mobile</label>
-              <input value={form.phone} onChange={set('phone')} placeholder="" inputMode="tel" />
+              <input value={form.phone} onChange={set('phone')} placeholder="" inputMode="tel" maxLength={10} pattern="[0-9]{10}" />
             </div>
             <div className="form-group">
               <label>Email</label>

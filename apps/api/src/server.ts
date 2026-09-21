@@ -98,7 +98,7 @@ app.get('/api/v1/dashboard', { preHandler: requirePermission('dashboard.read') }
 // ── Customers ─────────────────────────────────────────────────────────────────
 const customerSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
-  phone: z.string().trim().regex(/^[0-9+ \-]{7,20}$/).optional(),
+  phone: z.string().trim().regex(/^[0-9]{10}$/, 'Mobile number must be exactly 10 digits').optional(),
   email: z.string().email().optional(),
   address: z.string().max(1000).optional(),
 });
