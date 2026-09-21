@@ -124,7 +124,7 @@ export function Pos() {
           <label>
             Customer
             <input
-              value={customer?.name ?? customerQuery}
+              value={customer?.full_name ?? customerQuery}
               onChange={e => { setCustomer(null); setCustomerQuery(e.target.value); }}
               placeholder="Optional — search by name or mobile"
             />
@@ -168,7 +168,7 @@ export function Pos() {
           <div>
             <h3>Current sale</h3>
             <div className="customer-tag">
-              {customer ? `👤 ${customer.name}` : 'Walk-in customer'}
+              {customer ? `👤 ${customer.full_name}` : 'Walk-in customer'}
             </div>
           </div>
           <button className="cart-clear-btn" onClick={() => { setCart([]); setNotice(''); }} disabled={!cart.length}>Clear</button>
