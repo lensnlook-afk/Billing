@@ -67,8 +67,8 @@ function TypeBadge({ type }: { type: string }) {
 // ─── Add Product Modal ────────────────────────────────────────────────────────
 function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
-    name: '', sku: '', barcode: '', productType: 'FRAME',
-    sellingPrice: '', costPrice: '', taxRate: '0',
+    name: '',
+    sellingPrice: '', costPrice: '',
     color: '', size: '', reorderLevel: '5',
   });
   const [busy, setBusy] = useState(false);
@@ -86,15 +86,12 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
       await req('/api/v1/inventory/products', {
         method: 'POST',
         body: JSON.stringify({
-          name: form.name, sku: form.sku,
-          barcode: form.barcode || undefined,
-          productType: form.productType,
+          name: form.name,
           sellingPrice: form.sellingPrice,
           costPrice: form.costPrice || undefined,
-          taxRate: form.taxRate,
           color: form.color || undefined,
           size: form.size || undefined,
-          reorderLevel: Number(form.reorderLevel),
+          reorderLevel: Number(form.reorderLevel) || 5,
         }),
       });
       onSaved();
@@ -113,51 +110,18 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <form onSubmit={submit} className="modal-body">
-          <div className="form-row">
-            <div className="form-group">
-              <label>Product Name *</label>
-              <input value={form.name} onChange={set('name')} placeholder="e.g. Ray-Ban Aviator" required />
-            </div>
-            <div className="form-group">
-              <label>Type *</label>
-              <select value={form.productType} onChange={set('productType')}>
-                <option value="FRAME">Frame</option>
-                <option value="LENS">Lens</option>
-                <option value="CONTACT_LENS">Contact Lens</option>
-                <option value="ACCESSORY">Accessory</option>
-                <option value="SERVICE">Service</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>SKU *</label>
-              <input value={form.sku} onChange={set('sku')} placeholder="e.g. FR-RB-001" required />
-            </div>
-            <div className="form-group">
-              <label>Barcode</label>
-              <input value={form.barcode} onChange={set('barcode')} placeholder="Optional" />
-            </div>
+          <div className="form-group">
+            <label>Product Name *</label>
+            <input value={form.name} onChange={set('name')} placeholder="e.g. Ray-Ban Aviator" required autoFocus />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>Selling Price (₹) *</label>
-              <input type="number" min="0" step="0.01" value={form.sellingPrice} onChange={set('sellingPrice')} placeholder="0.00" required />
+              <input type="number" min="0" step="1" value={form.sellingPrice} onChange={set('sellingPrice')} placeholder="0" required inputMode="decimal" />
             </div>
             <div className="form-group">
               <label>Cost Price (₹)</label>
-              <input type="number" min="0" step="0.01" value={form.costPrice} onChange={set('costPrice')} placeholder="0.00" />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Tax Rate (%)</label>
-              <input type="number" min="0" max="100" step="0.01" value={form.taxRate} onChange={set('taxRate')} placeholder="0" />
-            </div>
-            <div className="form-group">
-              <label>Reorder Level</label>
-              <input type="number" min="0" value={form.reorderLevel} onChange={set('reorderLevel')} />
+              <input type="number" min="0" step="1" value={form.costPrice} onChange={set('costPrice')} placeholder="0" inputMode="decimal" />
             </div>
           </div>
           <div className="form-row">
@@ -169,6 +133,10 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
               <label>Size</label>
               <input value={form.size} onChange={set('size')} placeholder="e.g. M" />
             </div>
+          </div>
+          <div className="form-group">
+            <label>Low Stock Alert Qty</label>
+            <input type="number" min="0" value={form.reorderLevel} onChange={set('reorderLevel')} placeholder="5" inputMode="numeric" />
           </div>
           {error && <p className="error">{error}</p>}
           <div className="modal-footer">

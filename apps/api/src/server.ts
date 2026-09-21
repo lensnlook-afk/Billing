@@ -38,9 +38,10 @@ app.setErrorHandler((error, request, reply) => {
   const isZodError = error instanceof z.ZodError;
   const status = error instanceof AppError ? error.statusCode : isZodError ? 422 : 500;
   request.log.error({ err: error, requestId: request.id }, 'request failed');
+  // In production expose real message for all errors so we can debug
   reply.status(status).send({ error: {
     code: error instanceof AppError ? error.code : isZodError ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR',
-    message: status === 500 ? 'An unexpected error occurred.' : error instanceof Error ? error.message : 'Request failed.',
+    message: error instanceof Error ? error.message : 'Request failed.',
     requestId: request.id,
   }});
 });
@@ -226,12 +227,8 @@ app.get('/api/v1/inventory/stores', { preHandler: requirePermission('inventory.r
 // Add Product — uses original products+product_variants schema
 const productSchema = z.object({
   name: z.string().trim().min(2).max(200),
-  sku: z.string().trim().min(2).max(80),
-  barcode: z.string().trim().max(100).optional(),
   sellingPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
   costPrice: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
-  mrp: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
-  taxRate: z.string().regex(/^\d+(\.\d{1,2})?$/).default('0.00'),
   color: z.string().max(80).optional(),
   size: z.string().max(40).optional(),
   reorderLevel: z.number().int().min(0).default(5),
@@ -240,21 +237,21 @@ const productSchema = z.object({
 app.post('/api/v1/inventory/products', { preHandler: requirePermission('products.write') }, async (request, reply) => {
   const input = productSchema.parse(request.body);
   const result = await transaction(async db => {
-    // Upsert product by name, then create variant with SKU
+    // Always create a new product row
     const product = await db.query(
-      `INSERT INTO products(name, tax_rate, active) VALUES($1,$2,true)
-       ON CONFLICT DO NOTHING
-       RETURNING id`,
-      [input.name, input.taxRate]
+      `INSERT INTO products(name, tax_rate, active) VALUES($1, 0, true) RETURNING id`,
+      [input.name]
     );
-    const productId = product.rows[0]?.id ?? (await db.query('SELECT id FROM products WHERE name=$1', [input.name])).rows[0].id;
+    const productId = product.rows[0].id;
+    // Auto-generate a unique SKU: PRD-<timestamp>
+    const sku = `PRD-${Date.now()}`;
     const variant = await db.query(
-      `INSERT INTO product_variants(product_id,sku,barcode,color,size,selling_price,cost_price,mrp,reorder_threshold,active)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,true) RETURNING id,sku`,
-      [productId, input.sku, input.barcode ?? null, input.color ?? null, input.size ?? null,
-       input.sellingPrice, input.costPrice ?? '0', input.mrp ?? null, input.reorderLevel]
+      `INSERT INTO product_variants(product_id,sku,color,size,selling_price,cost_price,reorder_threshold,active)
+       VALUES($1,$2,$3,$4,$5,$6,$7,true) RETURNING id,sku`,
+      [productId, sku, input.color ?? null, input.size ?? null,
+       input.sellingPrice, input.costPrice ?? '0', input.reorderLevel]
     );
-    await audit(db, request.actor, { action: 'PRODUCT_CREATED', entityType: 'product', entityId: variant.rows[0].id, newValue: { name: input.name, sku: input.sku }, ip: clientIp(request), requestId: request.id });
+    await audit(db, request.actor, { action: 'PRODUCT_CREATED', entityType: 'product', entityId: variant.rows[0].id, newValue: { name: input.name, sku }, ip: clientIp(request), requestId: request.id });
     return { id: variant.rows[0].id, sku: variant.rows[0].sku, name: input.name };
   });
   return reply.status(201).send({ data: result });
