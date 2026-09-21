@@ -29,11 +29,17 @@ export default async function handler(req: any, res: any) {
 
   await app.ready();
 
-  // Vercel pre-parses JSON bodies into objects. Fastify's inject() expects
-  // a string/Buffer, so we must re-serialize to avoid silent body corruption.
+  // Vercel pre-parses JSON bodies. Always normalize to a JSON string for Fastify.
   let payload: string | undefined;
   if (!['GET', 'HEAD'].includes(req.method ?? '') && req.body !== undefined) {
-    payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    if (typeof req.body === 'string') {
+      // Already a string — try to parse+re-stringify to ensure valid JSON
+      try { payload = JSON.stringify(JSON.parse(req.body)); } catch { payload = req.body; }
+    } else if (Buffer.isBuffer(req.body)) {
+      payload = req.body.toString('utf8');
+    } else {
+      payload = JSON.stringify(req.body);
+    }
   }
 
   const response = await app.inject({
