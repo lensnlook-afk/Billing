@@ -223,13 +223,6 @@ function AddStockModal({
               placeholder="Enter quantity" required autoFocus
             />
           </div>
-          <div className="form-group">
-            <label>Reason *</label>
-            <input
-              value={reason} onChange={e => setReason(e.target.value)}
-              placeholder="e.g. New stock received from supplier" required
-            />
-          </div>
           {(product.locations ?? []).length > 0 && (
             <div className="stock-summary">
               <p className="stock-summary-title">Current stock</p>
