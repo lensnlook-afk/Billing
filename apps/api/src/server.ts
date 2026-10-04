@@ -166,25 +166,23 @@ app.patch('/api/v1/customers/:id', { preHandler: requirePermission('customers.wr
 });
 
 // ── Products ──────────────────────────────────────────────────────────────────
-// Ensure every active product has a product_variants row for billing
-async function ensureVariant(db: typeof pool, productId: string): Promise<string> {
-  const existing = await db.query('SELECT id FROM product_variants WHERE product_id=$1 AND active=true LIMIT 1', [productId]);
-  if (existing.rowCount) return existing.rows[0].id as string;
-  const created = await db.query(
-    `INSERT INTO product_variants(product_id, sku, selling_price, cost_price, reorder_threshold, active)
-     SELECT id, sku, selling_price, cost_price, reorder_level, true FROM products WHERE id=$1
-     RETURNING id`,
-    [productId]
-  );
-  return created.rows[0].id as string;
+// One-time bulk variant creation — runs as a single SQL, not a loop
+async function ensureAllVariants(): Promise<void> {
+  await pool.query(`
+    INSERT INTO product_variants(product_id, sku, selling_price, cost_price, reorder_threshold, active)
+    SELECT p.id, p.sku, p.selling_price, p.cost_price, p.reorder_level, true
+    FROM products p
+    WHERE p.is_active
+      AND NOT EXISTS (
+        SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.active = true
+      )
+  `);
 }
 
 app.get('/api/v1/products', { preHandler: requirePermission('products.read') }, async request => {
   const { q = '', limit = '50' } = request.query as { q?: string; limit?: string };
-  // Ensure all products have variants (auto-create missing ones)
-  const allProducts = await pool.query(`SELECT id FROM products WHERE is_active=true`);
-  for (const p of allProducts.rows) { await ensureVariant(pool, p.id); }
-  // Return variant.id as the product ID so invoice-service can find it
+  // Fast bulk-upsert (single SQL, no loop)
+  await ensureAllVariants();
   const result = await pool.query(
     `SELECT v.id, p.id AS product_id, p.sku, p.barcode, p.product_name AS name,
             p.color, p.size, p.selling_price, p.cost_price, p.tax_rate,
@@ -223,6 +221,7 @@ app.get('/api/v1/inventory', { preHandler: requirePermission('inventory.read') }
        p.tax_rate,
        p.reorder_level,
        p.created_at,
+       v.id AS variant_id,
        COALESCE(SUM(b.quantity),0)::int AS total_stock,
        COALESCE(SUM(b.quantity),0)::int AS available,
        0 AS reserved,
@@ -240,7 +239,7 @@ app.get('/api/v1/inventory', { preHandler: requirePermission('inventory.read') }
      WHERE p.is_active
        AND ($1='' OR p.product_name ILIKE '%'||$1||'%' OR p.sku ILIKE '%'||$1||'%')
        AND ($2='' OR b.location_id::text=$2)
-     GROUP BY p.id
+     GROUP BY p.id, v.id
      ORDER BY p.product_name
      LIMIT 200`,
     [q.trim(), location.trim()]
@@ -274,6 +273,12 @@ app.post('/api/v1/inventory/products', { preHandler: requirePermission('products
        input.color ?? null, input.size ?? null, input.reorderLevel]
     );
     await audit(db, request.actor, { action: 'PRODUCT_CREATED', entityType: 'product', entityId: product.rows[0].id, newValue: { name: input.name, sku }, ip: clientIp(request), requestId: request.id });
+    // Create variant immediately so product is billable right away
+    await db.query(
+      `INSERT INTO product_variants(product_id, sku, selling_price, cost_price, reorder_threshold, active)
+       VALUES($1,$2,$3,$4,$5,true)`,
+      [product.rows[0].id, sku, input.sellingPrice, input.costPrice ?? '0', input.reorderLevel]
+    );
     return { id: product.rows[0].id, sku: product.rows[0].sku, name: product.rows[0].product_name };
   });
   return reply.status(201).send({ data: result });
@@ -306,37 +311,29 @@ const stockReceiptSchema = z.object({
 app.post('/api/v1/inventory/stock', { preHandler: requirePermission('inventory.adjust') }, async (request, reply) => {
   const input = stockReceiptSchema.parse(request.body);
   const result = await transaction(async db => {
-    // In this schema, products are created without variants.
-    // We auto-create a product_variant for inventory tracking if one doesn't exist.
-    const product = await db.query('SELECT id,sku,product_name FROM products WHERE id=$1 AND is_active FOR UPDATE', [input.variantId]);
-    if (!product.rowCount) throw new AppError(404, 'Product not found.', 'NOT_FOUND');
+    // input.variantId is now always a real product_variants.id
+    const variant = await db.query(
+      `SELECT v.id, v.sku, p.product_name FROM product_variants v
+       JOIN products p ON p.id=v.product_id
+       WHERE v.id=$1 AND v.active=true AND p.is_active FOR UPDATE`,
+      [input.variantId]
+    );
+    if (!variant.rowCount) throw new AppError(404, 'Product variant not found.', 'NOT_FOUND');
     const location = await db.query('SELECT id,name FROM locations WHERE id=$1 AND active', [input.locationId]);
     if (!location.rowCount) throw new AppError(404, 'Location not found.', 'NOT_FOUND');
 
-    // Get or create a product_variant for this product
-    let variantRow = await db.query('SELECT id FROM product_variants WHERE product_id=$1 LIMIT 1', [input.variantId]);
-    if (!variantRow.rowCount) {
-      variantRow = await db.query(
-        `INSERT INTO product_variants(product_id, sku, selling_price, cost_price, reorder_threshold, active)
-         SELECT id, sku, selling_price, cost_price, reorder_level, true FROM products WHERE id=$1
-         RETURNING id`,
-        [input.variantId]
-      );
-    }
-    const variantId = variantRow.rows[0].id;
-
-    await db.query('INSERT INTO inventory_balances(variant_id,location_id,quantity) VALUES($1,$2,0) ON CONFLICT DO NOTHING', [variantId, input.locationId]);
-    const bal = await db.query('SELECT quantity FROM inventory_balances WHERE variant_id=$1 AND location_id=$2 FOR UPDATE', [variantId, input.locationId]);
+    await db.query('INSERT INTO inventory_balances(variant_id,location_id,quantity) VALUES($1,$2,0) ON CONFLICT DO NOTHING', [input.variantId, input.locationId]);
+    const bal = await db.query('SELECT quantity FROM inventory_balances WHERE variant_id=$1 AND location_id=$2 FOR UPDATE', [input.variantId, input.locationId]);
     const before = Number(bal.rows[0].quantity);
     const after = before + input.quantity;
-    await db.query('UPDATE inventory_balances SET quantity=$1,updated_at=now() WHERE variant_id=$2 AND location_id=$3', [after, variantId, input.locationId]);
+    await db.query('UPDATE inventory_balances SET quantity=$1,updated_at=now() WHERE variant_id=$2 AND location_id=$3', [after, input.variantId, input.locationId]);
     const movement = await db.query(
       `INSERT INTO inventory_movements(variant_id,location_id,movement_type,quantity_delta,quantity_before,quantity_after,reference_type,reason,performed_by)
        VALUES($1,$2,'STOCK_RECEIPT',$3,$4,$5,'MANUAL_RECEIPT',$6,$7) RETURNING id`,
-      [variantId, input.locationId, input.quantity, before, after, input.reason, request.actor!.id]
+      [input.variantId, input.locationId, input.quantity, before, after, input.reason, request.actor!.id]
     );
-    await audit(db, request.actor, { action: 'STOCK_RECEIVED', entityType: 'inventory_movement', entityId: movement.rows[0].id, newValue: { sku: product.rows[0].sku, location: location.rows[0].name, qty: input.quantity, before, after }, reason: input.reason, ip: clientIp(request), requestId: request.id });
-    return { productId: input.variantId, locationId: input.locationId, sku: product.rows[0].sku, before, after };
+    await audit(db, request.actor, { action: 'STOCK_RECEIVED', entityType: 'inventory_movement', entityId: movement.rows[0].id, newValue: { sku: variant.rows[0].sku, location: location.rows[0].name, qty: input.quantity, before, after }, reason: input.reason, ip: clientIp(request), requestId: request.id });
+    return { variantId: input.variantId, locationId: input.locationId, sku: variant.rows[0].sku, before, after };
   });
   return reply.status(201).send({ data: result });
 });

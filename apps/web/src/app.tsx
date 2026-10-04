@@ -96,21 +96,21 @@ export function App() {
           ))}
         </nav>
         <footer>
-          <strong>{user.displayName}</strong>
-          <span>{user.roles.join(' · ')}</span>
-          <button onClick={async () => { await api.logout(); setUser(null); }}>Sign out</button>
+          <span className="user-name">{user.displayName}</span>
+          <span className="user-role">{user.roles.join(' · ')}</span>
+          <button onClick={async () => { await api.logout(); setUser(null); }}>↩ Sign out</button>
         </footer>
       </aside>
 
       {/* ── Main content ── */}
       <main>
         <header>
-          <div>
-            <p className="eyebrow">LENS&amp;LOOK · NOW IN BADAMI &amp; ILKAL</p>
+          <div className="header-left">
             <h2>{pageTitle}</h2>
+            <span className="header-sub">Lens&amp;Look · {isAdmin ? 'Admin' : 'Employee'}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{user.displayName}</span>
+          <div className="header-right">
+            <span className="header-user">{user.displayName}</span>
             <div className="online"><b /> Live</div>
           </div>
         </header>

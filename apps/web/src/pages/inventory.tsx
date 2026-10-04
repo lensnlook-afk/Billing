@@ -7,6 +7,7 @@ interface LocationStock { store_id: string; store_name: string; quantity: number
 
 interface InventoryProduct {
   product_id: string;
+  variant_id: string;
   name: string;
   sku: string;
   variant?: string;
@@ -177,18 +178,17 @@ function AddStockModal({
 }) {
   const [storeId, setStoreId] = useState(stores[0]?.id ?? '');
   const [quantity, setQuantity] = useState('');
-  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!storeId || !quantity || !reason) { setError('All fields are required.'); return; }
+    if (!storeId || !quantity) { setError('All fields are required.'); return; }
     setBusy(true); setError('');
     try {
       await req('/api/v1/inventory/stock', {
         method: 'POST',
-        body: JSON.stringify({ variantId: product.product_id, locationId: storeId, quantity: Number(quantity), reason }),
+        body: JSON.stringify({ variantId: product.variant_id, locationId: storeId, quantity: Number(quantity) }),
       });
       onSaved();
     } catch (err) {
