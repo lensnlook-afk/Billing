@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, type Customer, type Product } from '../api/client';
+import { api, type Customer, type Product, type User } from '../api/client';
 
 type CartLine = { product: Product; quantity: number };
 type PosView = 'catalog' | 'cart';
 type PaymentMode = 'full' | 'advance' | 'custom';
 
 const rupees = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n);
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 
-export function Pos() {
+const fmtTime = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+export function Pos({ user }: { user: User }) {
   const [query, setQuery]               = useState('');
   const [products, setProducts]         = useState<Product[]>([]);
   const [cart, setCart]                 = useState<CartLine[]>([]);
@@ -84,7 +86,8 @@ export function Pos() {
         crypto.randomUUID() + crypto.randomUUID().replace('-', '')
       );
       const d = outcome.data;
-      setNotice(`✓ ${d.invoiceNumber} · Paid ${rupees(Number(d.amountPaid))} · Balance ${rupees(Number(d.amountDue))}`);
+      const ts = fmtTime();
+      setNotice(`✓ ${d.invoiceNumber} · ${user.displayName} · ${ts} · Paid ${rupees(Number(d.amountPaid))}${Number(d.amountDue) > 0 ? ` · Due ${rupees(Number(d.amountDue))}` : ''}`);
       setCart([]); setCustomAmount(''); setCustomer(null);
       setPaymentMode('full');
       setMobileView('catalog');

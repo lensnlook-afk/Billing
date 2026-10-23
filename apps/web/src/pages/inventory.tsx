@@ -247,7 +247,7 @@ function AddStockModal({
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export function Inventory({ isAdmin = false }: { isAdmin?: boolean }) {
+export function Inventory({ isAdmin = false, user }: { isAdmin?: boolean; user?: { displayName: string } }) {
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const [stores, setStores] = useState<StoreLocation[]>([]);
   const [query, setQuery] = useState('');

@@ -8,26 +8,26 @@ import { Customers } from './pages/customers';
 import { Reports } from './pages/reports';
 import { AuditLogs } from './pages/auditlogs';
 
-// Primary tabs shown in bottom nav
+const NAV_ITEMS = [
+  { screen: 'Dashboard', icon: '▤', label: 'Dashboard' },
+  { screen: 'Billing',   icon: '⊞', label: 'Billing' },
+  { screen: 'Inventory', icon: '⊟', label: 'Inventory' },
+  { screen: 'Customers', icon: '◉', label: 'Customers' },
+  { screen: 'Reports',   icon: '↗', label: 'Reports',   adminOnly: true },
+  { screen: 'Audit Logs',icon: '⊕', label: 'Audit Logs', adminOnly: true },
+];
+
 const PRIMARY_TABS = [
-  { screen: 'Dashboard', icon: '◎',  label: 'Home' },
-  { screen: 'Billing',   icon: '🧾', label: 'Billing' },
-  { screen: 'Inventory', icon: '📦', label: 'Stock' },
-  { screen: 'Customers', icon: '👥', label: 'Customers' },
-  { screen: 'More',      icon: '≡',  label: 'More' },
+  { screen: 'Dashboard', icon: '▤', label: 'Home' },
+  { screen: 'Billing',   icon: '⊞', label: 'Bill' },
+  { screen: 'Inventory', icon: '⊟', label: 'Stock' },
+  { screen: 'Customers', icon: '◉', label: 'Customers' },
+  { screen: 'More',      icon: '···', label: 'More' },
 ];
 
-// All nav items for sidebar
-const ALL_NAV = [
-  'Dashboard','Billing','Inventory','Customers',
-  'Reports','Audit Logs','Settings',
-];
-
-// Items shown in the More menu
 const MORE_ITEMS = [
-  { screen: 'Reports',    icon: '�', label: 'Reports' },
-  { screen: 'Audit Logs', icon: '🔒', label: 'Audit' },
-  { screen: 'Settings',   icon: '⚙',  label: 'Settings' },
+  { screen: 'Reports',    icon: '↗', label: 'Reports' },
+  { screen: 'Audit Logs', icon: '⊕', label: 'Audit' },
 ];
 
 export function App() {
@@ -48,76 +48,62 @@ export function App() {
   function navigate(s: string) { setScreen(s); setShowMore(false); }
 
   let content: React.ReactNode;
-  if      (screen === 'Billing')    content = <Pos />;
+  if      (screen === 'Billing')    content = <Pos user={user} />;
   else if (screen === 'Dashboard')  content = <Dashboard />;
-  else if (screen === 'Inventory')  content = <Inventory isAdmin={isAdmin} />;
+  else if (screen === 'Inventory')  content = <Inventory isAdmin={isAdmin} user={user} />;
   else if (screen === 'Customers')  content = <Customers />;
-  else if (screen === 'Reports' && isAdmin) content = <Reports />;
-  else if (screen === 'Reports' && !isAdmin) content = (
-    <section className="empty">
-      <h1>Access Denied</h1>
-      <p>Reports are only available to admin users.</p>
-    </section>
-  );
+  else if (screen === 'Reports' && isAdmin)    content = <Reports />;
   else if (screen === 'Audit Logs' && isAdmin) content = <AuditLogs />;
-  else if (screen === 'Audit Logs' && !isAdmin) content = (
-    <section className="empty">
-      <h1>Access Denied</h1>
-      <p>Audit logs are only available to admin users.</p>
-    </section>
+  else if (!isAdmin && (screen === 'Reports' || screen === 'Audit Logs')) content = (
+    <section className="empty"><h1>Access denied</h1><p>This section is only available to admin.</p></section>
   );
   else content = (
     <section className="empty">
       <h1>{screen}</h1>
-      <p>This module is coming soon.</p>
-      <span className="soon-pill">Coming soon</span>
+      <p>Coming soon.</p>
+      <span className="soon-pill">In progress</span>
     </section>
   );
 
   const pageTitle = screen === 'Billing' ? 'Point of Sale' : screen;
-
-  // Filter sidebar nav based on role
-  const sidebarNav = isAdmin ? ALL_NAV : ALL_NAV.filter(n => !['Reports','Audit Logs','Settings'].includes(n));
+  const sidebarNav = NAV_ITEMS.filter(n => !n.adminOnly || isAdmin);
   const moreItems  = isAdmin ? MORE_ITEMS : [];
 
   return (
     <div className="shell">
-      {/* ── Desktop sidebar ── */}
       <aside>
         <div className="brand">
           <span className="brand-name">Lens&amp;Look</span>
-          <small className="brand-sub">BADAMI · ILKAL</small>
+          <small className="brand-sub">Badami · Ilkal</small>
         </div>
         <nav>
           {sidebarNav.map(item => (
-            <button key={item} className={screen === item ? 'active' : ''} onClick={() => navigate(item)}>
-              {item}
+            <button key={item.screen} className={screen === item.screen ? 'active' : ''} onClick={() => navigate(item.screen)}>
+              <span className="nav-icon">{item.icon}</span>
+              {item.label}
             </button>
           ))}
         </nav>
         <footer>
           <span className="user-name">{user.displayName}</span>
-          <span className="user-role">{user.roles.join(' · ')}</span>
-          <button onClick={async () => { await api.logout(); setUser(null); }}>↩ Sign out</button>
+          <span className="user-role">{user.roles[0]}</span>
+          <button onClick={async () => { await api.logout(); setUser(null); }}>Sign out</button>
         </footer>
       </aside>
 
-      {/* ── Main content ── */}
       <main>
         <header>
           <div className="header-left">
             <h2>{pageTitle}</h2>
-            <span className="header-sub">Lens&amp;Look · {isAdmin ? 'Admin' : 'Employee'}</span>
+            <span className="header-sub">{isAdmin ? 'Admin' : 'Employee'} · {user.displayName}</span>
           </div>
           <div className="header-right">
-            <span className="header-user">{user.displayName}</span>
             <div className="online"><b /> Live</div>
           </div>
         </header>
         <div className="page-content">{content}</div>
       </main>
 
-      {/* ── Mobile bottom tab bar ── */}
       <nav className="bottom-nav">
         {PRIMARY_TABS.map(tab => (
           <button
@@ -132,7 +118,6 @@ export function App() {
         ))}
       </nav>
 
-      {/* ── More menu overlay ── */}
       {showMore && (
         <div className="more-menu-overlay" onClick={() => setShowMore(false)}>
           <div className="more-menu" onClick={e => e.stopPropagation()}>
@@ -143,12 +128,8 @@ export function App() {
                 <span>{item.label}</span>
               </button>
             ))}
-            <button
-              className="more-menu-item"
-              style={{ color: '#f87171' }}
-              onClick={async () => { await api.logout(); setUser(null); }}
-            >
-              <span className="tab-icon">⎋</span>
+            <button className="more-menu-item" style={{ color: '#f87171' }} onClick={async () => { await api.logout(); setUser(null); }}>
+              <span className="tab-icon">↩</span>
               <span>Sign out</span>
             </button>
           </div>
