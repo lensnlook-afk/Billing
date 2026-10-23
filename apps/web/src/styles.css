@@ -480,18 +480,65 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   .inv-desktop-only { display: none; }
   .inv-mobile-only  { display: flex; flex-direction: column; }
 
-  /* Modal — bottom sheet */
-  .modal-overlay { align-items: flex-end; padding: 0; backdrop-filter: none; }
-  .modal { border-radius: 18px 18px 0 0; max-height: 92vh; }
-  .modal::before { content: ''; display: block; width: 32px; height: 3px; background: var(--border-2); border-radius: 2px; margin: 10px auto 0; }
+  /* Modal — bottom sheet on mobile */
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+    background: rgba(0,0,0,.5);
+  }
+  .modal {
+    border-radius: 16px 16px 0 0;
+    max-height: 80vh;
+    /* Force white background regardless of any theme */
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  /* Drag handle */
+  .modal::before {
+    content: '';
+    display: block;
+    width: 36px; height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    margin: 10px auto 0;
+  }
+  .modal-header {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  .modal-header h3 { color: #0f172a !important; }
+  .modal-body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    /* Ensure keyboard doesn't cover content */
+    overflow-y: auto;
+  }
   .form-row { grid-template-columns: 1fr; gap: 9px; }
-  .modal-body { padding: 12px 14px; }
+  .modal-body { padding: 12px 14px 32px; }
   .modal-header { padding: 12px 14px 10px; }
+
+  /* Customer form specific */
+  .cust-tabs button { color: #64748b !important; background: #fff !important; }
+  .cust-tabs button.active { background: #ecfeff !important; color: #0891b2 !important; }
+  .cust-search-input { background: #fff !important; color: #0f172a !important; border-color: #e2e8f0 !important; }
+  .cust-result-name { color: #0f172a !important; }
+  .cust-result-phone { color: #94a3b8 !important; }
+  .form-group label { color: #475569 !important; }
+  .form-group input { background: #fff !important; color: #0f172a !important; border-color: #e2e8f0 !important; }
 
   .login { grid-template-columns: 1fr; padding: 28px 18px 36px; gap: 20px; align-items: start; }
   .login section h1 { font-size: 28px; }
   .login form { padding: 20px 16px; }
   .empty { padding: 32px 16px; }
+
+  /* Order confirmed — bottom sheet on mobile */
+  .order-confirmed-modal {
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: #ffffff !important;
+  }
 
   .reports-tabs { flex-wrap: wrap; }
   .reports-tab { flex: 1; text-align: center; font-size: 11px; padding: 6px 4px; }
