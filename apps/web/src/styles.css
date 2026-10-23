@@ -604,3 +604,19 @@ aside footer button:hover { background: rgba(255,255,255,.06); color: rgba(255,2
     .shell > main { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   }
 }
+
+/* ── Category tabs (POS) ── */
+.cat-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.cat-tab {
+  border: 1px solid var(--border); background: var(--surface);
+  border-radius: 100px; padding: 5px 12px;
+  font-size: 12px; font-weight: 600; color: var(--ink-3);
+  cursor: pointer; transition: all .1s; white-space: nowrap;
+}
+.cat-tab:hover { border-color: var(--accent-mid); color: var(--accent); }
+.cat-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+@media (max-width: 768px) {
+  .cat-tabs { gap: 3px; }
+  .cat-tab { font-size: 11px; padding: 5px 10px; }
+}

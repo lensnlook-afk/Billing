@@ -181,11 +181,9 @@ async function ensureAllVariants(): Promise<void> {
 
 app.get('/api/v1/products', { preHandler: requirePermission('products.read') }, async request => {
   const { q = '', limit = '50' } = request.query as { q?: string; limit?: string };
-  // Fast bulk-upsert (single SQL, no loop)
-  await ensureAllVariants();
   const result = await pool.query(
     `SELECT v.id, p.id AS product_id, p.sku, p.barcode, p.product_name AS name,
-            p.color, p.size, p.selling_price, p.cost_price, p.tax_rate,
+            p.color, p.size, p.product_type, p.selling_price, p.cost_price, p.tax_rate,
             p.reorder_level AS reorder_threshold,
             COALESCE(sum(b.quantity),0)::int stock
      FROM products p
@@ -438,8 +436,8 @@ app.get('/api/v1/reports/employees', { preHandler: requirePermission('audit.read
 app.get('/api/v1/audit', { preHandler: requirePermission('audit.read') }, async request => {
   const { limit = '100', action = '', entityType = '' } = request.query as { limit?: string; action?: string; entityType?: string };
   const result = await pool.query(
-    `SELECT id,occurred_at,actor_login,actor_roles,action,entity_type,entity_id,new_value,reason
-     FROM audit_logs
+    `SELECT id, occurred_at, actor_login, actor_roles, action, entity_type, entity_id, new_value, reason
+     FROM audit_logs_legacy
      WHERE ($1='' OR action ILIKE $1) AND ($2='' OR entity_type=$2)
      ORDER BY occurred_at DESC LIMIT $3`,
     [action ? `%${action}%` : '', entityType, Math.min(Math.max(Number(limit) || 100, 1), 500)]
@@ -459,6 +457,9 @@ app.get('/api/v1/audit/verify', { preHandler: requirePermission('audit.read') },
   const head = await pool.query(`SELECT last_hash FROM audit_chain_heads WHERE scope='global'`);
   return { valid: head.rows[0]?.last_hash === prior, entries: rows.length };
 });
+
+// Run variant sync once at startup so products are immediately billable
+await ensureAllVariants();
 
 export { app };
 
