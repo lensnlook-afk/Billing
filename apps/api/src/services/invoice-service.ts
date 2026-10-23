@@ -50,6 +50,38 @@ export async function postSale(db: Db, actor: Actor, input: SaleInput, idempoten
   // The payments table uses a different schema (order_id based) so we skip it
   // and rely on the invoice record + audit log for payment tracking.
   const response: Reply = { invoiceId, invoiceNumber, grandTotal: fromPaise(grandTotal), amountPaid: fromPaise(paymentTotal), amountDue: fromPaise(amountDue), paymentStatus };
-  await audit(db,actor,{ action:'INVOICE_POSTED',entityType:'invoice',entityId:invoiceId,newValue:{...response,items:lines.map(l=>({variantId:l.variantId,quantity:l.quantity}))},transactionId:invoiceId,ip:context.ip,requestId:context.requestId });
+
+  // Fetch customer name for audit log if available
+  let customerName: string | null = null;
+  if (input.customerId) {
+    const cust = await db.query('SELECT full_name, phone FROM customers WHERE id=$1', [input.customerId]);
+    if (cust.rows[0]) customerName = `${cust.rows[0].full_name}${cust.rows[0].phone ? ` (${cust.rows[0].phone})` : ''}`;
+  }
+
+  await audit(db, actor, {
+    action: 'ORDER_PLACED',
+    entityType: 'invoice',
+    entityId: invoiceId,
+    newValue: {
+      invoiceNumber,
+      customer: customerName ?? 'Walk-in',
+      cashier: actor.displayName || actor.loginName,
+      location: locShort,
+      items: lines.map(l => ({
+        product: l.product.name,
+        sku: l.product.sku,
+        qty: l.quantity,
+        price: fromPaise(l.price),
+        total: fromPaise(l.total),
+      })),
+      grandTotal: fromPaise(grandTotal),
+      amountPaid: fromPaise(paymentTotal),
+      amountDue: fromPaise(amountDue),
+      paymentStatus,
+    },
+    transactionId: invoiceId,
+    ip: context.ip,
+    requestId: context.requestId,
+  });
   await db.query(`UPDATE idempotency_keys SET status_code=201,response_body=$2,completed_at=now() WHERE key=$1`,[idempotencyKey,response]); return response;
 }
