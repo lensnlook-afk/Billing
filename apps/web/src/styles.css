@@ -575,15 +575,17 @@ input:focus, select:focus, textarea:focus {
 .oc-close-btn:hover { opacity: .9; }
 
 /* WhatsApp CTA */
-.oc-wa-wrap { padding: 0 22px 14px; }
+.oc-wa-wrap { padding: 0 22px 14px; display: flex; flex-direction: column; gap: 6px; }
 .oc-wa-btn {
   display: flex; align-items: center; justify-content: center; gap: 9px;
-  width: 100%; padding: 14px; border-radius: var(--r-sm);
+  width: 100%; padding: 14px; border-radius: var(--r-sm); border: 0;
   background: #25d366; color: #fff;
-  font-size: 15px; font-weight: 600; text-decoration: none;
-  transition: opacity .12s; letter-spacing: -.01em;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: opacity .12s, background .2s; letter-spacing: -.01em;
 }
 .oc-wa-btn:hover { opacity: .88; }
+.oc-wa-btn.sent { background: #128c7e; }
+.oc-wa-note { font-size: 11px; color: var(--ink-4); text-align: center; margin: 0; }
 
 /* ── Login ──────────────────────────────────────────────────────── */
 .login {
