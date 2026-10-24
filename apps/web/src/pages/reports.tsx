@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { downloadCSV } from '../lib/csv';
 
 type Period = 'day' | 'week' | 'month';
 
@@ -94,6 +95,23 @@ export function Reports() {
 
   const PERIOD_LABELS: Record<Period, string> = { day: 'Today', week: 'Last 7 days', month: 'Last 30 days' };
 
+  function exportCSV() {
+    const date = new Date().toISOString().slice(0, 10);
+    if (tab === 'sales') {
+      downloadCSV(`sales-${period}-${date}.csv`,
+        ['Employee', 'Invoices', 'Total Sales', 'Collected', 'Outstanding'],
+        sales.map(s => [s.employee, s.invoice_count, s.total_sales, s.total_collected, s.total_outstanding]));
+    } else if (tab === 'invoices') {
+      downloadCSV(`invoices-${period}-${date}.csv`,
+        ['Invoice Number', 'Cashier', 'Customer', 'Mobile', 'Grand Total', 'Amount Paid', 'Amount Due', 'Payment Status', 'Date'],
+        invoices.map(inv => [inv.invoice_number, inv.cashier, inv.customer_name ?? '', inv.customer_mobile ?? '', inv.grand_total, inv.amount_paid, inv.amount_due, inv.payment_status, new Date(inv.created_at).toLocaleString('en-IN')]));
+    } else {
+      downloadCSV(`stock-movements-${period}-${date}.csv`,
+        ['Product', 'SKU', 'Location', 'Type', 'Delta', 'Before', 'After', 'Reason', 'Performed By', 'Date'],
+        movements.map(m => [m.product_name, m.sku, m.location_name, m.movement_type, m.quantity_delta, m.quantity_before, m.quantity_after, m.reason ?? '', m.performed_by ?? '', new Date(m.created_at).toLocaleString('en-IN')]));
+    }
+  }
+
   return (
     <div className="reports-page">
       {/* Toolbar */}
@@ -122,6 +140,7 @@ export function Reports() {
             </select>
           )}
         </div>
+        <button className="btn-outline" onClick={exportCSV} disabled={loading}>⬇ Export CSV</button>
       </div>
 
       {error && <p className="error">{error}</p>}

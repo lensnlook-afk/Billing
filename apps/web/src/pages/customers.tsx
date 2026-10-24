@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { downloadCSV } from '../lib/csv';
 
 interface Customer {
   id: string;
@@ -248,6 +249,11 @@ export function Customers() {
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by name, mobile or code…"          />
         </div>
+        <button className="btn-outline" onClick={() => {
+          downloadCSV(`customers-${new Date().toISOString().slice(0,10)}.csv`,
+            ['Code', 'Name', 'Mobile', 'Email', 'Address', 'Customer Since'],
+            customers.map(c => [c.customer_code, c.full_name, c.phone ?? '', c.email ?? '', c.address ?? '', new Date(c.created_at).toLocaleDateString('en-IN')]));
+        }}>⬇ Export</button>
         <button className="btn-primary" onClick={() => setShowAdd(true)}>+ Add Customer</button>
       </div>
 

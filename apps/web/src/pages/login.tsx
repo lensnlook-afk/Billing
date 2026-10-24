@@ -7,7 +7,7 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
   const [error, setError]           = useState('');
   const [busy, setBusy]             = useState(false);
 
-  const backdrop = `linear-gradient(90deg,rgba(10,26,29,.89) 0%,rgba(10,26,29,.67) 49%,rgba(10,26,29,.28) 100%),url(${import.meta.env.BASE_URL}lens-look-storefront.png)`;
+  const backdrop = `linear-gradient(90deg,rgba(10,26,29,.72) 0%,rgba(10,26,29,.42) 50%,rgba(10,26,29,.18) 100%),url(${import.meta.env.BASE_URL}lens-look-storefront.png)`;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

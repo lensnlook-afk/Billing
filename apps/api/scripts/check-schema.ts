@@ -1,8 +1,6 @@
 import { pool } from '../src/lib/db.js';
-const r = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='products' ORDER BY ordinal_position`);
-console.log('products:', r.rows.map((x: any) => x.column_name).join(', '));
-const v = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='product_variants' ORDER BY ordinal_position`);
-console.log('product_variants:', v.rows.map((x: any) => x.column_name).join(', '));
-const i = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='invoices' ORDER BY ordinal_position`);
-console.log('invoices:', i.rows.map((x: any) => x.column_name).join(', '));
+const r = await pool.query(`SELECT p.id as product_id, p.product_name, v.id as variant_id, v.sku FROM products p LEFT JOIN product_variants v ON v.product_id = p.id LIMIT 10`);
+console.log('products+variants:', JSON.stringify(r.rows, null, 2));
+const b = await pool.query(`SELECT * FROM inventory_balances LIMIT 5`);
+console.log('inventory_balances:', JSON.stringify(b.rows, null, 2));
 await pool.end();

@@ -7,7 +7,7 @@ REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
 
-CREATE TABLE schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), login_name text NOT NULL UNIQUE, display_name text NOT NULL,
   password_hash text NOT NULL, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
@@ -42,6 +42,34 @@ CREATE TABLE product_variants (
 );
 CREATE INDEX variants_sku_idx ON product_variants(sku); CREATE INDEX variants_barcode_idx ON product_variants(barcode);
 CREATE TABLE inventory_balances (variant_id uuid NOT NULL REFERENCES product_variants(id), location_id uuid NOT NULL REFERENCES locations(id), quantity integer NOT NULL DEFAULT 0 CHECK (quantity >= 0), updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (variant_id, location_id));
+ALTER TABLE product_variants ADD COLUMN stock integer NOT NULL DEFAULT 0;
+
+CREATE TABLE orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id uuid REFERENCES customers(id),
+  total numeric(14,2) NOT NULL DEFAULT 0 CHECK (total >= 0),
+  status text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE order_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL REFERENCES orders(id),
+  product_variant_id uuid NOT NULL REFERENCES product_variants(id),
+  quantity integer NOT NULL CHECK (quantity > 0),
+  price numeric(14,2) NOT NULL CHECK (price >= 0),
+  total numeric(14,2) GENERATED ALWAYS AS (quantity * price) STORED
+);
+
+CREATE TABLE employees (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid UNIQUE REFERENCES users(id),
+  name text NOT NULL,
+  role text NOT NULL,
+  email text NOT NULL UNIQUE
+);
+
 CREATE TYPE inventory_movement_type AS ENUM ('PURCHASE','SALE','RETURN','DAMAGE','ADJUSTMENT','TRANSFER','STOCK_RECEIPT','STOCK_RESERVATION','STOCK_RELEASE','OTHER');
 CREATE TABLE inventory_movements (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), variant_id uuid NOT NULL REFERENCES product_variants(id), location_id uuid NOT NULL REFERENCES locations(id), movement_type inventory_movement_type NOT NULL, quantity_delta integer NOT NULL CHECK (quantity_delta <> 0), quantity_before integer NOT NULL, quantity_after integer NOT NULL CHECK (quantity_after >= 0), reference_type text NOT NULL, reference_id uuid, reason text, performed_by uuid REFERENCES users(id), created_at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX movements_variant_created_idx ON inventory_movements(variant_id, created_at DESC);

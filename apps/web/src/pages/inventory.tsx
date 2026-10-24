@@ -68,12 +68,14 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 // ─── Add Product Modal ────────────────────────────────────────────────────────
-function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function AddProductModal({ onClose, onSaved, stores }: { onClose: () => void; onSaved: () => void; stores: StoreLocation[] }) {
   const [form, setForm] = useState({
     name: '',
     productType: 'FRAME',
     sellingPrice: '', costPrice: '',
     color: '', size: '', reorderLevel: '5',
+    initialQty: '',
+    storeId: stores[0]?.id ?? '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -87,6 +89,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     e.preventDefault();
     setBusy(true); setError('');
     try {
+      const qty = Number(form.initialQty) || 0;
       await req('/api/v1/inventory/products', {
         method: 'POST',
         body: JSON.stringify({
@@ -97,6 +100,8 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           color: form.color || undefined,
           size: form.size || undefined,
           reorderLevel: Number(form.reorderLevel) || 5,
+          openingQuantity: qty > 0 ? qty : undefined,
+          locationId: qty > 0 && form.storeId ? form.storeId : undefined,
         }),
       });
       onSaved();
@@ -117,7 +122,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
         <form onSubmit={submit} className="modal-body">
           <div className="form-group">
             <label>Product Name *</label>
-            <input value={form.name} onChange={set('name')} placeholder="e.g. Ray-Ban Aviator" required autoFocus />
+            <input value={form.name} onChange={set('name')} required autoFocus />
           </div>
           <div className="form-group">
             <label>Category *</label>
@@ -133,21 +138,33 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <div className="form-row">
             <div className="form-group">
               <label>Selling Price (₹) *</label>
-              <input type="number" min="0" step="1" value={form.sellingPrice} onChange={set('sellingPrice')} placeholder="0" required inputMode="decimal" />
+              <input type="number" min="0" step="1" value={form.sellingPrice} onChange={set('sellingPrice')} required inputMode="decimal" />
             </div>
             <div className="form-group">
               <label>Cost Price (₹)</label>
-              <input type="number" min="0" step="1" value={form.costPrice} onChange={set('costPrice')} placeholder="0" inputMode="decimal" />
+              <input type="number" min="0" step="1" value={form.costPrice} onChange={set('costPrice')} inputMode="decimal" />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>Color</label>
-              <input value={form.color} onChange={set('color')} placeholder="e.g. Gold" />
+              <input value={form.color} onChange={set('color')} />
             </div>
             <div className="form-group">
               <label>Size</label>
-              <input value={form.size} onChange={set('size')} placeholder="e.g. M" />
+              <input value={form.size} onChange={set('size')} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Initial Quantity</label>
+              <input type="number" min="0" value={form.initialQty} onChange={set('initialQty')} placeholder="0" inputMode="numeric" />
+            </div>
+            <div className="form-group">
+              <label>Store</label>
+              <select value={form.storeId} onChange={set('storeId')}>
+                {stores.map(s => <option key={s.id} value={s.id}>{s.name.replace('Lens & Look — ','')}</option>)}
+              </select>
             </div>
           </div>
           <div className="form-group">
@@ -478,7 +495,7 @@ export function Inventory({ isAdmin = false, user }: { isAdmin?: boolean; user?:
       )}
 
       {showAddProduct && (
-        <AddProductModal onClose={() => setShowAddProduct(false)} onSaved={() => { setShowAddProduct(false); void load(); }} />
+        <AddProductModal stores={stores} onClose={() => setShowAddProduct(false)} onSaved={() => { setShowAddProduct(false); void load(); }} />
       )}
       {stockTarget && (
         <AddStockModal

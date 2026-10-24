@@ -14,7 +14,7 @@ import { postSale, type SaleInput } from './services/invoice-service.js';
 
 declare module 'fastify' { interface FastifyRequest { actor: Actor | null; } }
 
-const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, requestIdHeader: 'x-request-id', genReqId: () => randomUUID() });
+const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, requestIdHeader: 'x-request-id', genReqId: () => randomUUID(), trustProxy: true });
 await app.register(helmet, { contentSecurityPolicy: false });
 await app.register(cookie);
 
@@ -70,7 +70,7 @@ app.post('/api/v1/auth/login', async (request, reply) => {
   const token = createToken();
   const session = await pool.query(`INSERT INTO sessions(user_id,token_hash,ip,user_agent,expires_at) VALUES($1,$2,$3,$4,now()+interval '12 hours') RETURNING id`, [user.id, tokenHash(token), clientIp(request), request.headers['user-agent'] ?? null]);
   const actor = (await getActor({ ...request, cookies: { ...request.cookies, [sessionCookie]: token } } as FastifyRequest))!;
-  await transaction(db => audit(db, actor, { action: 'LOGIN_SUCCEEDED', entityType: 'session', entityId: session.rows[0].id, ip: clientIp(request), requestId: request.id }));
+  await transaction(db => audit(db, actor, { action: 'LOGIN_SUCCEEDED', entityType: 'session', entityId: session.rows[0].id, newValue: { ip: clientIp(request), userAgent: request.headers['user-agent'] ?? null }, ip: clientIp(request), requestId: request.id }));
   reply.setCookie(sessionCookie, token, sessionCookieOptions()).send({ user: { id: actor.id, loginName: actor.loginName, displayName: actor.displayName, roles: actor.roles, permissions: [...actor.permissions] } });
 });
 
@@ -258,6 +258,8 @@ const productSchema = z.object({
   color: z.string().max(80).optional(),
   size: z.string().max(40).optional(),
   reorderLevel: z.number().int().min(0).default(5),
+  openingQuantity: z.number().int().min(0).max(100000).optional(),
+  locationId: z.string().uuid().optional(),
 });
 
 app.post('/api/v1/inventory/products', { preHandler: requirePermission('products.write') }, async (request, reply) => {
@@ -272,12 +274,31 @@ app.post('/api/v1/inventory/products', { preHandler: requirePermission('products
     );
     await audit(db, request.actor, { action: 'PRODUCT_CREATED', entityType: 'product', entityId: product.rows[0].id, newValue: { name: input.name, sku }, ip: clientIp(request), requestId: request.id });
     // Create variant immediately so product is billable right away
-    await db.query(
+    const variant = await db.query(
       `INSERT INTO product_variants(product_id, sku, selling_price, cost_price, reorder_threshold, active)
-       VALUES($1,$2,$3,$4,$5,true)`,
+       VALUES($1,$2,$3,$4,$5,true) RETURNING id`,
       [product.rows[0].id, sku, input.sellingPrice, input.costPrice ?? '0', input.reorderLevel]
     );
-    return { id: product.rows[0].id, sku: product.rows[0].sku, name: product.rows[0].product_name };
+    const variantId = variant.rows[0].id;
+
+    // If opening quantity + location provided, add stock atomically in the same transaction
+    if (input.openingQuantity && input.openingQuantity > 0 && input.locationId) {
+      const location = await db.query('SELECT id,name FROM locations WHERE id=$1 AND active', [input.locationId]);
+      if (!location.rowCount) throw new AppError(404, 'Location not found.', 'NOT_FOUND');
+      await db.query('INSERT INTO inventory_balances(variant_id,location_id,quantity) VALUES($1,$2,0) ON CONFLICT DO NOTHING', [variantId, input.locationId]);
+      const bal = await db.query('SELECT quantity FROM inventory_balances WHERE variant_id=$1 AND location_id=$2 FOR UPDATE', [variantId, input.locationId]);
+      const before = Number(bal.rows[0].quantity);
+      const after = before + input.openingQuantity;
+      await db.query('UPDATE inventory_balances SET quantity=$1,updated_at=now() WHERE variant_id=$2 AND location_id=$3', [after, variantId, input.locationId]);
+      await db.query(
+        `INSERT INTO inventory_movements(variant_id,location_id,movement_type,quantity_delta,quantity_before,quantity_after,reference_type,reason,performed_by)
+         VALUES($1,$2,'STOCK_RECEIPT',$3,$4,$5,'MANUAL_RECEIPT',$6,$7)`,
+        [variantId, input.locationId, input.openingQuantity, before, after, 'Opening stock for new product', request.actor!.id]
+      );
+      await audit(db, request.actor, { action: 'STOCK_RECEIVED', entityType: 'inventory_movement', entityId: variantId, newValue: { sku, location: location.rows[0].name, qty: input.openingQuantity, before, after }, reason: 'Opening stock for new product', ip: clientIp(request), requestId: request.id });
+    }
+
+    return { id: product.rows[0].id, variantId, sku: product.rows[0].sku, name: product.rows[0].product_name };
   });
   return reply.status(201).send({ data: result });
 });
