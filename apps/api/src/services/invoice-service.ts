@@ -46,14 +46,10 @@ export async function postSale(db: Db, actor: Actor, input: SaleInput, idempoten
   const invoiceNumber = `${empInitial}-${locShort}-${dd}${mon}-${hh}${mm}${ss}-${String(sequence.rows[0].last_value).padStart(3,'0')}`;
   const invoice = await db.query(`INSERT INTO invoices(invoice_number,customer_id,payment_status,subtotal,discount_total,tax_total,grand_total,amount_paid,amount_due,cashier_id,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`, [invoiceNumber,input.customerId ?? null,paymentStatus,fromPaise(subtotal),fromPaise(discountTotal),fromPaise(taxTotal),fromPaise(grandTotal),fromPaise(paymentTotal),fromPaise(amountDue),actor.id,idempotencyKey]); const invoiceId = invoice.rows[0].id as string;
   for (const line of lines) { const description = [line.product.name,line.product.variant,line.product.color].filter(Boolean).join(' · '); await db.query(`INSERT INTO invoice_items(invoice_id,variant_id,sku_snapshot,description_snapshot,quantity,unit_price,discount_amount,tax_rate,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[invoiceId,line.variantId,line.product.sku,description,line.quantity,fromPaise(line.price),fromPaise(line.discount),line.product.tax_rate,fromPaise(line.total)]); const before = quantities.get(line.variantId)!; const after = before-line.quantity; await db.query('UPDATE inventory_balances SET quantity=$1,updated_at=now() WHERE variant_id=$2 AND location_id=$3',[after,line.variantId,input.locationId]); await db.query(`INSERT INTO inventory_movements(variant_id,location_id,movement_type,quantity_delta,quantity_before,quantity_after,reference_type,reference_id,performed_by) VALUES($1,$2,'SALE',$3,$4,$5,'INVOICE',$6,$7)`,[line.variantId,input.locationId,-line.quantity,before,after,invoiceId,actor.id]); }
-  // Store each payment with its method for reporting
-  for (const payment of input.payments) {
-    if (toPaise(payment.amount) > 0n) {
-      await db.query(
-        `INSERT INTO payments(invoice_id, amount, method, reference, received_by) VALUES($1,$2,$3,$4,$5)`,
-        [invoiceId, payment.amount, payment.method, payment.reference ?? null, actor.id]
-      );
-    }
+  // Store payment method on the invoice row for reporting
+  const paymentMethod = input.payments.length > 0 ? input.payments[0].method : null;
+  if (paymentMethod) {
+    await db.query('UPDATE invoices SET payment_method=$1 WHERE id=$2', [paymentMethod, invoiceId]);
   }
   const response: Reply = { invoiceId, invoiceNumber, grandTotal: fromPaise(grandTotal), amountPaid: fromPaise(paymentTotal), amountDue: fromPaise(amountDue), paymentStatus };
 
