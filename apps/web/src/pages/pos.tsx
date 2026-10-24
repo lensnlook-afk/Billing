@@ -387,6 +387,22 @@ export function Pos({ user }: { user: User }) {
                 </div>
               </div>
 
+              {/* PhonePe QR — shown when UPI is selected and amount > 0 */}
+              {method === 'UPI' && paid > 0 && (
+                <div className="phonepe-qr-wrap">
+                  <div className="phonepe-qr-header">
+                    <span className="phonepe-qr-label">Scan to pay</span>
+                    <strong className="phonepe-qr-amount">{rupees(paid)}</strong>
+                  </div>
+                  <img
+                    src={`${import.meta.env.BASE_URL}phonepe-qr.png`}
+                    alt="PhonePe UPI QR — Lens N Look"
+                    className="phonepe-qr-img"
+                  />
+                  <div className="phonepe-qr-footer">PhonePe · BHIM UPI · Terminal 3-Q452527909</div>
+                </div>
+              )}
+
               {error && <p className="error">{error}</p>}
 
               <button className="checkout-btn" disabled={busy} onClick={handleCheckoutPress}>

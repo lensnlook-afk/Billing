@@ -417,7 +417,8 @@ app.get('/api/v1/reports/invoices', { preHandler: requirePermission('audit.read'
        i.payment_status, i.created_at,
        u.display_name AS cashier,
        c.full_name AS customer_name,
-       c.phone AS customer_mobile
+       c.phone AS customer_mobile,
+       (SELECT string_agg(DISTINCT p.method::text, ', ') FROM payments p WHERE p.invoice_id=i.id) AS payment_method
      FROM invoices i
      JOIN users u ON u.id=i.cashier_id
      LEFT JOIN customers c ON c.id=i.customer_id

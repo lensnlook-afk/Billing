@@ -19,6 +19,7 @@ interface Invoice {
   amount_paid: string;
   amount_due: string;
   payment_status: string;
+  payment_method: string | null;
   created_at: string;
   cashier: string;
   customer_name: string | null;
@@ -103,8 +104,8 @@ export function Reports() {
         sales.map(s => [s.employee, s.invoice_count, s.total_sales, s.total_collected, s.total_outstanding]));
     } else if (tab === 'invoices') {
       downloadCSV(`invoices-${period}-${date}.csv`,
-        ['Invoice Number', 'Cashier', 'Customer', 'Mobile', 'Grand Total', 'Amount Paid', 'Amount Due', 'Payment Status', 'Date'],
-        invoices.map(inv => [inv.invoice_number, inv.cashier, inv.customer_name ?? '', inv.customer_mobile ?? '', inv.grand_total, inv.amount_paid, inv.amount_due, inv.payment_status, new Date(inv.created_at).toLocaleString('en-IN')]));
+        ['Invoice Number', 'Cashier', 'Customer', 'Mobile', 'Grand Total', 'Amount Paid', 'Amount Due', 'Payment Status', 'Payment Method', 'Date'],
+        invoices.map(inv => [inv.invoice_number, inv.cashier, inv.customer_name ?? '', inv.customer_mobile ?? '', inv.grand_total, inv.amount_paid, inv.amount_due, inv.payment_status, inv.payment_method ?? '', new Date(inv.created_at).toLocaleString('en-IN')]));
     } else {
       downloadCSV(`stock-movements-${period}-${date}.csv`,
         ['Product', 'SKU', 'Location', 'Type', 'Delta', 'Before', 'After', 'Reason', 'Performed By', 'Date'],
@@ -195,6 +196,7 @@ export function Reports() {
                     <span className={`report-status ${inv.payment_status.toLowerCase()}`}>
                       {inv.payment_status.replace('_', ' ')}
                     </span>
+                    {inv.payment_method && <span className="report-method-badge">{inv.payment_method}</span>}
                     <span className="report-inv-time">{fmt(inv.created_at)}</span>
                   </div>
                 </div>
@@ -222,6 +224,7 @@ export function Reports() {
                   <span className={`report-status ${inv.payment_status.toLowerCase()}`}>
                     {inv.payment_status.replace('_', ' ')}
                   </span>
+                  {inv.payment_method && <span className="report-method-badge">{inv.payment_method}</span>}
                   <span className="report-inv-time">{fmt(inv.created_at)}</span>
                 </div>
               </div>
