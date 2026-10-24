@@ -123,8 +123,8 @@ function CustomerModal({ customer, onClose, onSaved }: {
 }
 
 // ── Customer Detail Modal ─────────────────────────────────────────────────────
-function CustomerDetailModal({ customer, onClose, onEdit }: {
-  customer: CustomerDetail; onClose: () => void; onEdit: () => void;
+function CustomerDetailModal({ customer, onClose, onEdit, onDelete }: {
+  customer: CustomerDetail; onClose: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const totalSpent = customer.invoices.reduce((s, i) => s + Number(i.grand_total), 0);
   return (
@@ -137,6 +137,7 @@ function CustomerDetailModal({ customer, onClose, onEdit }: {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="inv-add-stock-btn" onClick={onEdit}>Edit</button>
+            <button className="inv-delete-btn" onClick={onDelete}>Delete</button>
             <button className="modal-close" onClick={onClose}>✕</button>
           </div>
         </div>
@@ -217,6 +218,17 @@ export function Customers() {
       setSelected(r.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load customer');
+    }
+  }
+
+  async function deleteCustomer(id: string) {
+    if (!window.confirm('Delete this customer? This cannot be undone.')) return;
+    try {
+      await apiFetch(`/api/v1/customers/${id}`, { method: 'DELETE' });
+      setSelected(null);
+      void load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete customer');
     }
   }
 
@@ -308,9 +320,14 @@ export function Customers() {
               <div key={c.id} className="inv-card" onClick={() => openDetail(c.id)} style={{ cursor: 'pointer' }}>
                 <div className="inv-card-top">
                   <div className="inv-card-name">{c.full_name}</div>
-                  <button className="inv-add-stock-btn" onClick={e => { e.stopPropagation(); openDetail(c.id); }}>
-                    View
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="inv-add-stock-btn" onClick={e => { e.stopPropagation(); openDetail(c.id); }}>
+                      View
+                    </button>
+                    <button className="inv-delete-btn" style={{ minHeight: 28, padding: '4px 9px', fontSize: 11 }} onClick={e => { e.stopPropagation(); deleteCustomer(c.id); }}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
                 <div className="inv-card-meta">
                   <span style={{ fontSize: 11, color: '#64748b' }}>{c.customer_code}</span>
@@ -343,6 +360,7 @@ export function Customers() {
           customer={selected}
           onClose={() => setSelected(null)}
           onEdit={() => { setEditing(selected); setSelected(null); }}
+          onDelete={() => deleteCustomer(selected.id)}
         />
       )}
     </div>

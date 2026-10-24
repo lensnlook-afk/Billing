@@ -165,6 +165,17 @@ app.patch('/api/v1/customers/:id', { preHandler: requirePermission('customers.wr
   return { data: updated };
 });
 
+app.delete('/api/v1/customers/:id', { preHandler: requirePermission('customers.write') }, async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const existing = await pool.query('SELECT id, full_name, customer_code FROM customers WHERE id=$1 AND deleted_at IS NULL', [id]);
+  if (!existing.rows[0]) throw new AppError(404, 'Customer not found.', 'NOT_FOUND');
+  await transaction(async db => {
+    await db.query('UPDATE customers SET deleted_at=now() WHERE id=$1', [id]);
+    await audit(db, request.actor, { action: 'CUSTOMER_DELETED', entityType: 'customer', entityId: id, previousValue: existing.rows[0], ip: clientIp(request), requestId: request.id });
+  });
+  return reply.status(204).send();
+});
+
 // ── Products ──────────────────────────────────────────────────────────────────
 // One-time bulk variant creation — runs as a single SQL, not a loop
 async function ensureAllVariants(): Promise<void> {

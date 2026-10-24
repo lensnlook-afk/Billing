@@ -122,7 +122,7 @@ function AddProductModal({ onClose, onSaved, stores }: { onClose: () => void; on
         <form onSubmit={submit} className="modal-body">
           <div className="form-group">
             <label>Product Name *</label>
-            <input value={form.name} onChange={set('name')} required autoFocus />
+            <input value={form.name} onChange={set('name')} required />
           </div>
           <div className="form-group">
             <label>Category *</label>
@@ -237,7 +237,7 @@ function AddStockModal({
             <input
               type="number" min="1" max="100000" value={quantity}
               onChange={e => setQuantity(e.target.value)}
-              placeholder="Enter quantity" required autoFocus
+              placeholder="Enter quantity" required
             />
             <div className="qty-quick">
               <button type="button" onClick={() => setQuantity(String(Math.max(1, (Number(quantity) || 0) + 1)))}>+1</button>
