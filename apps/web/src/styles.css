@@ -576,6 +576,12 @@ input:focus, select:focus, textarea:focus {
 
 /* WhatsApp CTA */
 .oc-wa-wrap { padding: 0 22px 14px; display: flex; flex-direction: column; gap: 6px; }
+.oc-wa-input {
+  width: 100%; border: 1.5px solid var(--border-2); border-radius: var(--r-sm);
+  padding: 11px 14px; font-size: 16px; color: var(--ink); background: var(--surface);
+  outline: none; text-align: center; letter-spacing: 2px;
+}
+.oc-wa-input:focus { border-color: #25d366; box-shadow: 0 0 0 3px rgba(37,211,102,.15); }
 .oc-wa-btn {
   display: flex; align-items: center; justify-content: center; gap: 9px;
   width: 100%; padding: 14px; border-radius: var(--r-sm); border: 0;
@@ -583,7 +589,8 @@ input:focus, select:focus, textarea:focus {
   font-size: 15px; font-weight: 600; cursor: pointer;
   transition: opacity .12s, background .2s; letter-spacing: -.01em;
 }
-.oc-wa-btn:hover { opacity: .88; }
+.oc-wa-btn:hover:not(:disabled) { opacity: .88; }
+.oc-wa-btn:disabled { opacity: .35; cursor: not-allowed; }
 .oc-wa-btn.sent { background: #128c7e; }
 .oc-wa-note { font-size: 11px; color: var(--ink-4); text-align: center; margin: 0; }
 
