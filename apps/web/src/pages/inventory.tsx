@@ -239,6 +239,12 @@ function AddStockModal({
               onChange={e => setQuantity(e.target.value)}
               placeholder="Enter quantity" required autoFocus
             />
+            <div className="qty-quick">
+              <button type="button" onClick={() => setQuantity(String(Math.max(1, (Number(quantity) || 0) + 1)))}>+1</button>
+              <button type="button" onClick={() => setQuantity(String(Math.max(1, (Number(quantity) || 0) + 5)))}>+5</button>
+              <button type="button" onClick={() => setQuantity(String(Math.max(1, (Number(quantity) || 0) + 10)))}>+10</button>
+              <button type="button" onClick={() => setQuantity('')}>Clear</button>
+            </div>
           </div>
           {(product.locations ?? []).length > 0 && (
             <div className="stock-summary">
@@ -270,6 +276,7 @@ export function Inventory({ isAdmin = false, user }: { isAdmin?: boolean; user?:
   const [query, setQuery] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [filterStock, setFilterStock] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -305,10 +312,20 @@ export function Inventory({ isAdmin = false, user }: { isAdmin?: boolean; user?:
 
   useEffect(() => { void load(); }, [load]);
 
-  const filtered = filterType ? products.filter(p => p.type === filterType) : products;
+  const filtered = products
+    .filter(p => !filterType || p.type === filterType)
+    .filter(p => {
+      if (!filterStock) return true;
+      if (filterStock === 'low') return p.total_stock > 0 && p.total_stock <= p.reorder_level;
+      if (filterStock === 'out') return p.total_stock === 0;
+      if (filterStock === 'in') return p.total_stock > p.reorder_level;
+      return true;
+    });
   // Use cost_price × stock (server computes stock_value = cost_price × total_stock)
   const totalValue = products.reduce((s, p) => s + Number(p.stock_value ?? 0), 0);
   const lowStockCount = products.filter(p => p.total_stock <= p.reorder_level).length;
+  const outStockCount = products.filter(p => p.total_stock === 0).length;
+  const inStockCount = products.filter(p => p.total_stock > p.reorder_level).length;
 
   return (
     <div className="inv-page">
@@ -351,6 +368,13 @@ export function Inventory({ isAdmin = false, user }: { isAdmin?: boolean; user?:
           <option value="OTHER">Other</option>
         </select>
         <button className="btn-primary" onClick={() => setShowAddProduct(true)}>+ Add Product</button>
+      </div>
+
+      <div className="inv-stock-filter">
+        <button className={filterStock === '' ? 'active' : ''} onClick={() => setFilterStock('')}>All ({products.length})</button>
+        <button className={filterStock === 'in' ? 'active' : ''} onClick={() => setFilterStock('in')}>In stock ({inStockCount})</button>
+        <button className={filterStock === 'low' ? 'active' : ''} onClick={() => setFilterStock('low')}>Low ({lowStockCount - outStockCount})</button>
+        <button className={filterStock === 'out' ? 'active' : ''} onClick={() => setFilterStock('out')}>Out ({outStockCount})</button>
       </div>
 
       {error && <p className="error" style={{ marginBottom: 12 }}>{error}</p>}
@@ -438,45 +462,32 @@ export function Inventory({ isAdmin = false, user }: { isAdmin?: boolean; user?:
           {/* Mobile card list */}
           <div className="inv-card-list inv-mobile-only">
             {filtered.map(p => {
-              const isLow = p.total_stock <= p.reorder_level;
+              const isLow = p.total_stock > 0 && p.total_stock <= p.reorder_level;
+              const isOut = p.total_stock === 0;
+              const stockClass = isOut ? 'zero' : isLow ? 'low' : 'ok';
+              const barWidth = Math.min(100, (p.total_stock / Math.max(p.reorder_level * 3, 1)) * 100);
               return (
-                <div key={p.product_id} className={`inv-card${isLow ? ' inv-card-warn' : ''}`}>
+                <div key={p.product_id} className={`inv-card${isOut ? ' inv-card-out' : isLow ? ' inv-card-warn' : ''}`}>
                   <div className="inv-card-top">
                     <div className="inv-card-name">
                       {p.name}
-                      {isLow && <span className="inv-low-badge" style={{ marginLeft: 6 }}>Low stock</span>}
+                      {(isLow || isOut) && <span className="inv-low-badge" style={{ marginLeft: 6 }}>{isOut ? 'Out of stock' : 'Low stock'}</span>}
                     </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Stock</button>
-                      {isAdmin && (
-                        <button
-                          className="inv-add-stock-btn"
-                          style={{ borderColor: '#dc2626', color: '#dc2626' }}
-                          onClick={() => deleteProduct(p)}
-                        >Delete</button>
-                      )}
+                    <div className={`inv-card-stock ${stockClass}`}>
+                      <strong>{p.total_stock}</strong>
+                      <small>units</small>
                     </div>
                   </div>
                   <div className="inv-card-meta">
                     <code className="inv-sku">{p.sku}</code>
                     {p.type && <TypeBadge type={p.type} />}
+                    <span className="inv-card-price">{rupees(p.selling_price)}</span>
                   </div>
-                  <div className="inv-card-stats">
-                    <div className="inv-card-stat">
-                      <span>Price</span>
-                      <strong>{rupees(p.selling_price)}</strong>
-                    </div>
-                    <div className="inv-card-stat">
-                      <span>In stock</span>
-                      <strong className={p.total_stock === 0 ? 'inv-qty-zero' : ''}>{p.total_stock}</strong>
-                    </div>
-                    <div className="inv-card-stat">
-                      <span>Available</span>
-                      <strong style={{ color: '#16a34a' }}>{p.available}</strong>
-                    </div>
+                  <div className="inv-stock-bar">
+                    <div className={`inv-stock-bar-fill ${stockClass}`} style={{ width: `${barWidth}%` }} />
                   </div>
                   {(p.locations ?? []).length > 0 && (
-                    <div className="inv-store-pills" style={{ marginTop: 8 }}>
+                    <div className="inv-store-pills">
                       {(p.locations ?? []).map(l => (
                         <span key={l.store_id} className="inv-store-pill">
                           {l.store_name.replace('Lens & Look — ', '')}: {l.quantity}
@@ -484,8 +495,11 @@ export function Inventory({ isAdmin = false, user }: { isAdmin?: boolean; user?:
                       ))}
                     </div>
                   )}
-                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
-                    Added: {new Date(p.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  <div className="inv-card-actions">
+                    <button className="inv-add-stock-btn" onClick={() => setStockTarget(p)}>+ Add Stock</button>
+                    {isAdmin && (
+                      <button className="inv-delete-btn" onClick={() => deleteProduct(p)}>Delete</button>
+                    )}
                   </div>
                 </div>
               );

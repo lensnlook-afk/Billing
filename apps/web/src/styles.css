@@ -363,6 +363,45 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .inv-card-stat span { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-4); }
 .inv-card-stat strong { font-size: 15px; font-weight: 700; color: var(--ink); }
 
+/* Stock level bar */
+.inv-stock-bar { height: 4px; background: var(--bg-2); border-radius: 100px; overflow: hidden; margin-top: 2px; }
+.inv-stock-bar-fill { height: 100%; border-radius: 100px; transition: width .25s ease; }
+.inv-stock-bar-fill.ok { background: var(--green); }
+.inv-stock-bar-fill.low { background: var(--amber); }
+.inv-stock-bar-fill.zero { background: var(--red); }
+
+/* Stock status filter pills */
+.inv-stock-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+.inv-stock-filter button { border: 1.5px solid var(--border); background: var(--surface); color: var(--ink-3); border-radius: 100px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .1s; white-space: nowrap; }
+.inv-stock-filter button:hover { border-color: var(--accent-mid); color: var(--accent); }
+.inv-stock-filter button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Card stock number */
+.inv-card-stock { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
+.inv-card-stock strong { font-size: 22px; font-weight: 700; line-height: 1; }
+.inv-card-stock small { font-size: 9px; color: var(--ink-4); text-transform: uppercase; letter-spacing: .5px; margin-top: 1px; }
+.inv-card-stock.ok strong { color: var(--green); }
+.inv-card-stock.low strong { color: var(--amber); }
+.inv-card-stock.zero strong { color: var(--red); }
+
+/* Card price in meta row */
+.inv-card-price { font-size: 12px; font-weight: 600; color: var(--ink-2); margin-left: auto; }
+
+/* Card actions row */
+.inv-card-actions { display: flex; gap: 7px; margin-top: 2px; }
+.inv-card-actions .inv-add-stock-btn { flex: 1; text-align: center; padding: 8px; font-size: 12px; }
+.inv-delete-btn { border: 1.5px solid var(--red); background: var(--surface); color: var(--red); border-radius: var(--r-sm); padding: 8px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; min-height: 38px; cursor: pointer; transition: background .1s; }
+.inv-delete-btn:hover { background: var(--red-lt); }
+
+/* Out of stock card border */
+.inv-card-out { border-left: 3px solid var(--red); }
+
+/* Quick quantity buttons */
+.qty-quick { display: flex; gap: 6px; margin-top: 6px; }
+.qty-quick button { flex: 1; border: 1.5px solid var(--border); background: var(--surface); border-radius: var(--r-sm); padding: 8px; font-size: 12px; font-weight: 600; color: var(--ink-2); cursor: pointer; transition: all .1s; }
+.qty-quick button:hover { border-color: var(--accent-mid); color: var(--accent); }
+.qty-quick button:active { background: var(--accent-lt); }
+
 /* ── Modal ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(13,26,78,.25); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px; backdrop-filter: blur(2px); }
 .modal { background: var(--surface); border-radius: var(--r-lg); width: 100%; max-width: 500px; box-shadow: var(--sh-lg); max-height: 90vh; overflow-y: auto; }
@@ -479,6 +518,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   .inv-toolbar .btn-primary { width: 100%; }
   .inv-desktop-only { display: none; }
   .inv-mobile-only  { display: flex; flex-direction: column; }
+  .inv-stock-filter button { flex: 1; text-align: center; padding: 6px 4px; font-size: 11px; }
+  .inv-store-pill { font-size: 10px; padding: 3px 8px; }
 
   /* Modal — bottom sheet on mobile */
   .modal-overlay {
