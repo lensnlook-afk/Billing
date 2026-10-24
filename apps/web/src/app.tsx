@@ -85,18 +85,16 @@ function useDarkMode(): [boolean, () => void] {
   const [dark, setDark] = useState(() => {
     try { return localStorage.getItem('ll-theme') === 'dark'; } catch { return false; }
   });
-  const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    const t = next ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', t);
-    try { localStorage.setItem('ll-theme', t); } catch {}
-    // update theme-color meta
-    document.querySelector('meta[name="theme-color"][media*="light"]')?.setAttribute('content', next ? '#000' : '#fff');
-  };
+
+  // Apply on every render where dark changes
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    const theme = dark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.background = dark ? '#000000' : '#f5f5f7';
+    try { localStorage.setItem('ll-theme', theme); } catch {}
   }, [dark]);
+
+  const toggle = () => setDark(d => !d);
   return [dark, toggle];
 }
 
@@ -110,6 +108,13 @@ export function App() {
   useEffect(() => {
     api.me().then(x => setUser(x.user)).catch(() => undefined).finally(() => setLoading(false));
   }, []);
+
+  // Prefetch hot data right after login so POS feels instant
+  useEffect(() => {
+    if (!user) return;
+    void api.products();
+    void api.locations();
+  }, [user]);
 
   if (loading) return <main className="centered">Opening Lens&amp;Look…</main>;
   if (!user)   return <Login onLogin={setUser} />;

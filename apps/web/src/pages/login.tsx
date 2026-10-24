@@ -27,8 +27,7 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
       <section>
         <div className="brand">Lens&amp;Look</div>
         <p className="eyebrow hero-eyebrow">NOW IN BADAMI &amp; ILKAL</p>
-        <h1>Every look<br />starts with vision.</h1>
-        <p>Sign in to access your shop workspace.</p>
+        <h1>Your shop.<br />Your numbers.</h1>
       </section>
 
       <form onSubmit={submit}>

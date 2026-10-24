@@ -18,4 +18,12 @@ export async function getActor(request: FastifyRequest): Promise<Actor | null> {
     WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.is_active GROUP BY s.id,u.id`, [tokenHash(token)]);
   const row = rows[0]; return row ? { id: row.id, loginName:row.login_name, displayName: row.display_name, roles: row.roles ?? [], permissions: new Set(row.permissions ?? []), sessionId: row.session_id } : null;
 }
-export function clientIp(request: FastifyRequest) { return request.ip || null; }
+export function clientIp(request: FastifyRequest): string | null {
+  // x-forwarded-for is set by Vercel/Cloudflare with the real client IP
+  const fwd = request.headers['x-forwarded-for'];
+  if (fwd) {
+    const first = (Array.isArray(fwd) ? fwd[0] : fwd).split(',')[0].trim();
+    if (first) return first;
+  }
+  return request.ip || null;
+}

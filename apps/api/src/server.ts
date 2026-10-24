@@ -70,7 +70,16 @@ app.post('/api/v1/auth/login', async (request, reply) => {
   const token = createToken();
   const session = await pool.query(`INSERT INTO sessions(user_id,token_hash,ip,user_agent,expires_at) VALUES($1,$2,$3,$4,now()+interval '12 hours') RETURNING id`, [user.id, tokenHash(token), clientIp(request), request.headers['user-agent'] ?? null]);
   const actor = (await getActor({ ...request, cookies: { ...request.cookies, [sessionCookie]: token } } as FastifyRequest))!;
-  await transaction(db => audit(db, actor, { action: 'LOGIN_SUCCEEDED', entityType: 'session', entityId: session.rows[0].id, newValue: { ip: clientIp(request), userAgent: request.headers['user-agent'] ?? null }, ip: clientIp(request), requestId: request.id }));
+  const ip = clientIp(request);
+  // Non-blocking geo lookup using ip-api.com (free, no key needed)
+  let geo: Record<string,unknown> = {};
+  if (ip && ip !== '::1' && ip !== '127.0.0.1') {
+    try {
+      const r = await fetch(`http://ip-api.com/json/${ip}?fields=country,regionName,city,isp`, { signal: AbortSignal.timeout(2000) });
+      if (r.ok) geo = await r.json() as Record<string,unknown>;
+    } catch { /* geo is optional */ }
+  }
+  await transaction(db => audit(db, actor, { action: 'LOGIN_SUCCEEDED', entityType: 'session', entityId: session.rows[0].id, newValue: { ip, geo, userAgent: request.headers['user-agent'] ?? null }, ip, requestId: request.id }));
   reply.setCookie(sessionCookie, token, sessionCookieOptions()).send({ user: { id: actor.id, loginName: actor.loginName, displayName: actor.displayName, roles: actor.roles, permissions: [...actor.permissions] } });
 });
 

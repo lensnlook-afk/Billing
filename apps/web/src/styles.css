@@ -53,6 +53,10 @@
 }
 
 /* ── Dark mode ──────────────────────────────────────────────────── */
+[data-theme="dark"],
+[data-theme="dark"] * {
+  color-scheme: dark;
+}
 [data-theme="dark"] {
   --bg:        #000000;
   --bg-2:      #1c1c1e;
@@ -64,24 +68,24 @@
   --ink-3: #aeaeb2;
   --ink-4: #636366;
 
-  --border:   rgba(255,255,255,.1);
-  --border-2: rgba(255,255,255,.18);
+  --border:   rgba(255,255,255,.12);
+  --border-2: rgba(255,255,255,.22);
 
   --accent:    #0a84ff;
   --accent-h:  #409cff;
-  --accent-lt: rgba(10,132,255,.15);
-  --accent-mid:rgba(10,132,255,.4);
+  --accent-lt: rgba(10,132,255,.18);
+  --accent-mid:rgba(10,132,255,.45);
 
   --green:    #30d158;
-  --green-lt: rgba(48,209,88,.15);
+  --green-lt: rgba(48,209,88,.18);
   --amber:    #ff9f0a;
-  --amber-lt: rgba(255,159,10,.15);
+  --amber-lt: rgba(255,159,10,.18);
   --red:      #ff453a;
-  --red-lt:   rgba(255,69,58,.15);
+  --red-lt:   rgba(255,69,58,.18);
 
-  --sh-sm: 0 1px 4px rgba(0,0,0,.4);
-  --sh:    0 4px 16px rgba(0,0,0,.5), 0 1px 4px rgba(0,0,0,.3);
-  --sh-lg: 0 20px 48px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.4);
+  --sh-sm: 0 1px 4px rgba(0,0,0,.5);
+  --sh:    0 4px 16px rgba(0,0,0,.6), 0 1px 4px rgba(0,0,0,.4);
+  --sh-lg: 0 20px 48px rgba(0,0,0,.7), 0 4px 12px rgba(0,0,0,.5);
 }
 
 /* ── Reset + base ───────────────────────────────────────────────── */
@@ -102,9 +106,10 @@ body {
   background: var(--bg);
   color: var(--ink);
   overscroll-behavior: none;
-  line-height: 1.47059; /* SF Pro body line-height */
-  transition: background .2s, color .2s;
+  line-height: 1.47059;
+  transition: background .25s, color .25s;
 }
+[data-theme="dark"] body { background: #000; color: #f5f5f7; }
 
 h1,h2,h3,h4 {
   margin: 0;
@@ -147,14 +152,14 @@ input:focus, select:focus, textarea:focus {
 
 /* ── Top navbar ─────────────────────────────────────────────────── */
 .topnav {
-  background: rgba(var(--_nav-bg, 255,255,255), .72);
+  background: rgba(245,245,247,.85);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: .5px solid var(--border);
   position: sticky; top: 0; z-index: 40;
   transition: background .2s;
 }
-[data-theme="dark"] .topnav { background: rgba(28,28,30,.72); }
+[data-theme="dark"] .topnav { background: rgba(0,0,0,.85); }
 
 .topnav-inner {
   max-width: 1280px; margin: 0 auto;
