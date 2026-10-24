@@ -787,6 +787,14 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: 768px) {
   html { font-size: 15px; }
 
+  /* ── Hide desktop nav on mobile ── */
+  .topnav-links { display: none; }
+  .topnav-right .topnav-user { display: none; }
+  .topnav-right .topnav-signout { display: none; }
+  .topnav-inner { padding: 0 16px; height: 48px; }
+  .topnav-logo { margin-right: 0; }
+  .topnav-right { margin-left: auto; gap: 6px; }
+
   .page-content {
     padding: 12px 16px;
     /* bottom nav + home indicator clearance */
@@ -972,8 +980,8 @@ input:focus, select:focus, textarea:focus {
   .audit-row { padding: 12px 16px; }
 }
 
-/* ── Bottom nav hidden on desktop ──────────────────────────────── */
-.bottom-nav { display: none; }
+/* ── Bottom nav — hidden on desktop, shown on mobile via media query ── */
+@media (min-width: 769px) { .bottom-nav { display: none; } }
 
 /* ── Misc ───────────────────────────────────────────────────────── */
 .customer-tag { margin-top: 2px; }
