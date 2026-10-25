@@ -23,7 +23,7 @@ export const api={
   logout:()=>request<void>('/api/v1/auth/logout',{method:'POST'}),
   me:()=>request<{user:User}>('/api/v1/auth/me'),
   dashboard:()=>cachedRequest<{today:{sales:string;collections:string;outstanding:string;invoices:string};lowStock:number}>('/api/v1/dashboard'),
-  products:(q='')=>q ? request<{data:Product[]}>(`/api/v1/products?q=${encodeURIComponent(q)}`) : cachedRequest<{data:Product[]}>('/api/v1/products?q='),
+  products:(q='',location='')=>q ? request<{data:Product[]}>(`/api/v1/products?q=${encodeURIComponent(q)}&location=${encodeURIComponent(location)}`) : cachedRequest<{data:Product[]}>(`/api/v1/products?q=&location=${encodeURIComponent(location)}`),
   customers:(q='')=>request<{data:Customer[]}>(`/api/v1/customers?q=${encodeURIComponent(q)}`),
   locations:()=>cachedRequest<{data:Location[]}>('/api/v1/locations'),
   createCustomer:(data:{fullName:string;phone?:string})=>request<{data:Customer}>('/api/v1/customers',{method:'POST',body:JSON.stringify(data)}),

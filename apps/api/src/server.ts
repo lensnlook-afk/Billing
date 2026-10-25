@@ -200,12 +200,14 @@ async function ensureAllVariants(): Promise<void> {
 }
 
 app.get('/api/v1/products', { preHandler: requirePermission('products.read') }, async request => {
-  const { q = '', limit = '50' } = request.query as { q?: string; limit?: string };
+  const { q = '', limit = '50', location = '' } = request.query as { q?: string; limit?: string; location?: string };
   const result = await pool.query(
     `SELECT v.id, p.id AS product_id, p.sku, p.barcode, p.product_name AS name,
             p.color, p.size, p.product_type, p.selling_price, p.cost_price, p.tax_rate,
             p.reorder_level AS reorder_threshold,
-            COALESCE(sum(b.quantity),0)::int stock
+            CASE WHEN $3 = '' THEN COALESCE(sum(b.quantity),0)::int
+                 ELSE COALESCE(sum(b.quantity) FILTER (WHERE b.location_id::text = $3), 0)::int
+            END AS stock
      FROM products p
      JOIN product_variants v ON v.product_id=p.id AND v.active=true
      LEFT JOIN inventory_balances b ON b.variant_id=v.id
@@ -214,7 +216,7 @@ app.get('/api/v1/products', { preHandler: requirePermission('products.read') }, 
      GROUP BY v.id, p.id
      ORDER BY p.product_name
      LIMIT $2`,
-    [q.trim(), Math.min(Math.max(Number(limit) || 50, 1), 100)]
+    [q.trim(), Math.min(Math.max(Number(limit) || 50, 1), 100), location.trim()]
   );
   return { data: result.rows };
 });

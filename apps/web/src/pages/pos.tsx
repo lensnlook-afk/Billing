@@ -278,14 +278,18 @@ export function Pos({ user }: { user: User }) {
   const [error, setError]               = useState('');
 
   useEffect(() => {
-    api.locations().then(x => setLocation(x.data[0]?.id ?? ''));
-    api.products().then(x => setAllProducts(x.data));
+    api.locations().then(x => {
+      const loc = x.data[0]?.id ?? '';
+      setLocation(loc);
+      api.products('', loc).then(x => setAllProducts(x.data));
+    });
   }, []);
 
   useEffect(() => {
-    const id = setTimeout(() => api.products(query).then(x => setAllProducts(x.data)).catch(() => undefined), 250);
+    if (!location) return;
+    const id = setTimeout(() => api.products(query, location).then(x => setAllProducts(x.data)).catch(() => undefined), 250);
     return () => clearTimeout(id);
-  }, [query]);
+  }, [query, location]);
 
   const products = useMemo(() =>
     category ? allProducts.filter(p => (p as any).product_type === category) : allProducts,
@@ -351,8 +355,8 @@ export function Pos({ user }: { user: User }) {
       });
       setCart([]); setCustomAmount(''); setCustomer(null); setCustomerForm(null);
       setPaymentMode('full'); setMobileView('catalog');
-      // Refresh product stock after sale so next bill is accurate
-      api.products().then(x => setAllProducts(x.data)).catch(() => undefined);
+      // Refresh product stock for this location after sale
+      api.products('', location).then(x => setAllProducts(x.data)).catch(() => undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post invoice');
     } finally {
