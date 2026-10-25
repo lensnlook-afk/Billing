@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { screen: 'Dashboard',  label: 'Dashboard' },
   { screen: 'Billing',    label: 'Billing' },
   { screen: 'Inventory',  label: 'Inventory' },
-  { screen: 'Customers',  label: 'Customers' },
+  { screen: 'Customers',  label: 'Customers', adminOnly: true },
   { screen: 'Reports',    label: 'Reports',    adminOnly: true },
   { screen: 'Audit Logs', label: 'Audit Logs', adminOnly: true },
 ];
@@ -54,7 +54,8 @@ function tabIcon(screen: string, active: boolean) {
   }
 }
 
-const MOB_TABS = ['Dashboard', 'Billing', 'Inventory', 'Customers', 'More'];
+const MOB_TABS_ALL = ['Dashboard', 'Billing', 'Inventory', 'Customers', 'More'];
+const MOB_TABS_EMPLOYEE = ['Dashboard', 'Billing', 'Inventory', 'More'];
 const MOB_LABELS: Record<string, string> = {
   Dashboard: 'Home', Billing: 'Billing', Inventory: 'Stock', Customers: 'People', More: 'More',
 };
@@ -126,11 +127,11 @@ export function App() {
   if      (screen === 'Billing')    content = <Pos user={user} />;
   else if (screen === 'Dashboard')  content = <Dashboard />;
   else if (screen === 'Inventory')  content = <Inventory isAdmin={isAdmin} user={user} />;
-  else if (screen === 'Customers')  content = <Customers />;
-  else if (screen === 'Reports' && isAdmin)    content = <Reports />;
-  else if (screen === 'Audit Logs' && isAdmin) content = <AuditLogs />;
-  else if (!isAdmin && (screen === 'Reports' || screen === 'Audit Logs')) content = (
-    <section className="empty"><h1>Access denied</h1><p>Admin only.</p></section>
+  else if (screen === 'Customers' && isAdmin)   content = <Customers />;
+  else if (screen === 'Reports' && isAdmin)      content = <Reports />;
+  else if (screen === 'Audit Logs' && isAdmin)   content = <AuditLogs />;
+  else if (!isAdmin && (screen === 'Customers' || screen === 'Reports' || screen === 'Audit Logs')) content = (
+    <section className="empty"><h1>Admin access only</h1><p>Ask your admin to view this section.</p></section>
   );
   else content = (
     <section className="empty"><h1>{screen}</h1><p>Coming soon.</p><span className="soon-pill">In progress</span></section>
@@ -169,7 +170,7 @@ export function App() {
 
       {/* Mobile bottom nav */}
       <nav className="bottom-nav">
-        {MOB_TABS.map(tabScreen => {
+        {(isAdmin ? MOB_TABS_ALL : MOB_TABS_EMPLOYEE).map(tabScreen => {
           const active = screen === tabScreen;
           return (
             <button
