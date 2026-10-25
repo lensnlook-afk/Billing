@@ -16,8 +16,16 @@ export async function postSale(db: Db, actor: Actor, input: SaleInput, idempoten
     throw new AppError(409, 'A matching request is still being processed. Retry shortly.', 'REQUEST_IN_PROGRESS');
   }
   if (input.customerId) { const customer = await db.query('SELECT id FROM customers WHERE id=$1 AND deleted_at IS NULL', [input.customerId]); if (!customer.rowCount) throw new AppError(404, 'Customer was not found.', 'CUSTOMER_NOT_FOUND'); }
-  const ids = input.items.map(item => item.variantId); const products = await db.query(`SELECT v.id,v.sku,v.selling_price,p.tax_rate,p.product_name AS name,v.variant,v.color FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=ANY($1::uuid[]) AND v.active AND p.is_active FOR UPDATE`, [ids]);
-  if (products.rowCount !== ids.length || new Set(ids).size !== ids.length) throw new AppError(422, 'One or more products are unavailable.', 'PRODUCT_UNAVAILABLE');
+  const ids = input.items.map(item => item.variantId);
+  // Check for duplicate variant IDs (same product added twice)
+  if (new Set(ids).size !== ids.length) throw new AppError(422, 'Duplicate products in cart — please refresh and try again.', 'DUPLICATE_ITEMS');
+  const products = await db.query(`SELECT v.id,v.sku,v.selling_price,p.tax_rate,p.product_name AS name,v.variant,v.color FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=ANY($1::uuid[]) AND v.active AND p.is_active FOR UPDATE`, [ids]);
+  if (products.rowCount !== ids.length) {
+    // Find which product(s) are missing to give a clearer error
+    const found = new Set(products.rows.map((r: { id: string }) => r.id));
+    const missing = ids.filter(id => !found.has(id));
+    throw new AppError(422, `Product not found or no longer available (ID: ${missing[0]?.slice(0,8)}…). Please refresh the product list.`, 'PRODUCT_UNAVAILABLE');
+  }
   await db.query(`INSERT INTO inventory_balances(variant_id,location_id,quantity) SELECT unnest($1::uuid[]),$2,0 ON CONFLICT DO NOTHING`, [ids,input.locationId]);
   const balances = await db.query(`SELECT variant_id,quantity FROM inventory_balances WHERE location_id=$1 AND variant_id=ANY($2::uuid[]) FOR UPDATE`, [input.locationId,ids]); const quantities = new Map(balances.rows.map(row => [row.variant_id, row.quantity as number]));
   const byId = new Map(products.rows.map(row => [row.id, row])); let subtotal = 0n, discountTotal = 0n, taxTotal = 0n;

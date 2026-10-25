@@ -52,6 +52,34 @@
   --bottomnav-h: 82px;
 }
 
+/* ── Light mode (explicit, overrides system prefers-color-scheme) ── */
+[data-theme="light"] {
+  --bg:        #f5f5f7;
+  --bg-2:      #e8e8ed;
+  --surface:   #ffffff;
+  --surface-2: #f5f5f7;
+  --ink:   #1d1d1f;
+  --ink-2: #3a3a3c;
+  --ink-3: #6e6e73;
+  --ink-4: #aeaeb2;
+  --border:   rgba(0,0,0,.1);
+  --border-2: rgba(0,0,0,.18);
+  --accent:    #0071e3;
+  --accent-h:  #0077ed;
+  --accent-lt: #e8f0fe;
+  --accent-mid:#6caaff;
+  --green:     #34c759;
+  --green-lt:  #d1fae5;
+  --amber:     #ff9f0a;
+  --amber-lt:  #fff3cd;
+  --red:       #ff3b30;
+  --red-lt:    #ffe5e5;
+  color-scheme: light;
+}
+[data-theme="light"] body { background: #f5f5f7; color: #1d1d1f; }
+[data-theme="light"] .topnav { background: rgba(245,245,247,.85); }
+[data-theme="light"] .bottom-nav { background: rgba(255,255,255,.82); }
+
 /* ── Dark mode ──────────────────────────────────────────────────── */
 [data-theme="dark"],
 [data-theme="dark"] * {

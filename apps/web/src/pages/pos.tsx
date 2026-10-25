@@ -71,7 +71,14 @@ function OrderConfirmed({ order, onClose, isAdmin }: { order: OrderResult; onClo
     const phone = waPhone.replace(/\D/g, '');
     if (!phone || phone.length < 10) return;
     const url = buildWhatsAppUrl({ ...order, customerPhone: phone });
-    window.open(url, '_blank', 'noopener,noreferrer');
+    // Create a real <a> click — works on both desktop browsers and mobile
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     setWaSent(true);
   }
 
@@ -309,16 +316,19 @@ export function Pos({ user }: { user: User }) {
   const handleCheckoutPress = () => {
     if (!cart.length || !location) return;
     if (!customer && !customerForm) { setShowCustModal(true); return; }
-    void doCheckout();
+    void doCheckout(customer, customerForm);
   };
 
-  const doCheckout = async () => {
+  const doCheckout = async (
+    resolvedCustomer = customer,
+    resolvedForm = customerForm,
+  ) => {
     if (!cart.length || !location) return;
     setBusy(true); setError('');
     try {
       const outcome = await api.postInvoice(
         {
-          customerId: customer?.id,
+          customerId: resolvedCustomer?.id,
           locationId: location,
           items: cart.map(x => ({ variantId: x.product.id, quantity: x.quantity })),
           payments: paid > 0 ? [{ amount: paid.toFixed(2), method }] : [],
@@ -333,15 +343,16 @@ export function Pos({ user }: { user: User }) {
         amountDue: d.amountDue,
         paymentStatus: d.paymentStatus,
         method,
-        customerName: customer?.full_name ?? customerForm?.fullName ?? null,
-        // Existing customer: use customer.phone; new form: use form.phone (empty string → null)
-        customerPhone: customer?.phone ?? (customerForm?.phone || null),
+        customerName: resolvedCustomer?.full_name ?? resolvedForm?.fullName ?? null,
+        customerPhone: resolvedCustomer?.phone ?? (resolvedForm?.phone || null),
         items: cart.map(l => ({ name: l.product.name, qty: l.quantity, price: Number(l.product.selling_price) })),
         cashier: user.displayName,
         time: fmtNow(),
       });
       setCart([]); setCustomAmount(''); setCustomer(null); setCustomerForm(null);
       setPaymentMode('full'); setMobileView('catalog');
+      // Refresh product stock after sale so next bill is accurate
+      api.products().then(x => setAllProducts(x.data)).catch(() => undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post invoice');
     } finally {
@@ -505,9 +516,14 @@ export function Pos({ user }: { user: User }) {
           initial={customerForm}
           onDone={(formData, existingCustomer) => {
             setShowCustModal(false);
-            if (existingCustomer) { setCustomer(existingCustomer); setCustomerForm(null); }
-            else if (formData) { setCustomerForm(formData); }
-            setTimeout(() => void doCheckout(), 50);
+            if (existingCustomer) {
+              setCustomer(existingCustomer);
+              setCustomerForm(null);
+              void doCheckout(existingCustomer, null);
+            } else if (formData) {
+              setCustomerForm(formData);
+              void doCheckout(null, formData);
+            }
           }}
         />
       )}
