@@ -424,6 +424,15 @@ input:focus, select:focus, textarea:focus {
   transition: background .12s;
 }
 .add-cust-btn:hover { background: rgba(0,113,227,.15); }
+.pos-location-select {
+  border: .5px solid var(--border); background: var(--bg);
+  color: var(--ink-2); border-radius: var(--r-xs);
+  padding: 5px 10px; font-size: 12px; font-weight: 600;
+  margin-top: 3px; cursor: pointer; max-width: 170px;
+  -webkit-appearance: none; appearance: none;
+}
+.pos-location-select:focus { border-color: var(--accent); outline: none; }
+
 .cart-clear-btn {
   border: 0; background: none; color: var(--red);
   font-size: 12px; font-weight: 600; padding: 6px 10px;

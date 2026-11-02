@@ -268,6 +268,7 @@ export function Pos({ user }: { user: User }) {
   const [customer, setCustomer]         = useState<Customer | null>(null);
   const [customerForm, setCustomerForm] = useState<{ fullName: string; phone: string; address: string } | null>(null);
   const [showCustModal, setShowCustModal] = useState(false);
+  const [locations, setLocations]         = useState<import('../api/client').Location[]>([]);
   const [location, setLocation]         = useState('');
   const [paymentMode, setPaymentMode]   = useState<PaymentMode>('full');
   const [customAmount, setCustomAmount] = useState('');
@@ -279,9 +280,10 @@ export function Pos({ user }: { user: User }) {
 
   useEffect(() => {
     api.locations().then(x => {
+      setLocations(x.data);
       const loc = x.data[0]?.id ?? '';
       setLocation(loc);
-      api.products('', loc).then(x => setAllProducts(x.data));
+      api.products('', loc).then(p => setAllProducts(p.data));
     });
   }, []);
 
@@ -422,6 +424,22 @@ export function Pos({ user }: { user: User }) {
           <div className="cart-header">
             <div>
               <h3>Bill</h3>
+              {locations.length > 1 && (
+                <select
+                  className="pos-location-select"
+                  value={location}
+                  onChange={e => {
+                    const loc = e.target.value;
+                    setLocation(loc);
+                    setCart([]);
+                    api.products('', loc).then(p => setAllProducts(p.data));
+                  }}
+                >
+                  {locations.map(l => (
+                    <option key={l.id} value={l.id}>{l.name.replace('Lens & Look — ','').replace('Lens&Look — ','')}</option>
+                  ))}
+                </select>
+              )}
               <div className="customer-tag">
                 {customerLabel
                   ? <span className="cust-set">👤 {customerLabel}</span>
