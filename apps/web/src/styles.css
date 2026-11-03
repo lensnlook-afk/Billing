@@ -543,8 +543,7 @@ input:focus, select:focus, textarea:focus {
 .checkout-btn:disabled { opacity: .35; }
 
 .pos-mobile-tabs { display: none; }
-.mob-hidden { display: none !important; }
-.mob-active  { display: flex !important; }
+/* mob-hidden/mob-active only apply on mobile — see @media block below */
 
 /* Customer form */
 .cust-tabs { display: flex; gap: 6px; }
@@ -903,6 +902,8 @@ input:focus, select:focus, textarea:focus {
     gap: 5px; transition: all .12s; min-height: 42px;
   }
   .pos-mobile-tab.active { background: var(--surface); color: var(--accent); box-shadow: var(--sh-sm); }
+  .mob-hidden { display: none !important; }
+  .mob-active  { display: flex !important; }
   .pos { grid-template-columns: 1fr; gap: 0; }
   .catalog { gap: 10px; }
   .product { padding: 12px; min-height: 82px; }
