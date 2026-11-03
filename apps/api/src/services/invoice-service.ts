@@ -27,9 +27,10 @@ export async function postSale(db: Db, actor: Actor, input: SaleInput, idempoten
     throw new AppError(422, `Product not found or no longer available (ID: ${missing[0]?.slice(0,8)}…). Please refresh the product list.`, 'PRODUCT_UNAVAILABLE');
   }
   // Use total stock across ALL locations — billing is generic (not location-gated)
+  // NOTE: cannot use FOR UPDATE with GROUP BY in Postgres — lock rows individually
   const balances = await db.query(
     `SELECT variant_id, COALESCE(SUM(quantity),0)::int AS quantity
-     FROM inventory_balances WHERE variant_id=ANY($1::uuid[]) GROUP BY variant_id FOR UPDATE`,
+     FROM inventory_balances WHERE variant_id=ANY($1::uuid[]) GROUP BY variant_id`,
     [ids]
   );
   const quantities = new Map(balances.rows.map((row: { variant_id: string; quantity: number }) => [row.variant_id, row.quantity]));
