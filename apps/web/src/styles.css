@@ -446,7 +446,12 @@ input:focus, select:focus, textarea:focus {
 .cart-line-info { display: flex; flex-direction: column; }
 .cart-line-name  { font-size: 13px; font-weight: 600; color: var(--ink); }
 .cart-line-sku   { font-size: 11px; color: var(--ink-4); margin-top: 1px; }
-.cart-line-price { font-size: 14px; font-weight: 700; color: var(--ink); text-align: right; padding-top: 2px; letter-spacing: -.02em; }
+.cart-line-price { font-size: 14px; font-weight: 700; color: var(--ink); text-align: right; padding-top: 2px; letter-spacing: -.02em; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.cart-original-price { font-size: 11px; font-weight: 400; color: var(--ink-4); text-decoration: line-through; }
+.cart-discount-row { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+.cart-discount-label { font-size: 11px; color: var(--ink-4); font-weight: 500; white-space: nowrap; }
+.cart-discount-input { width: 72px; border: 1px solid var(--border-2); border-radius: var(--r-xs); padding: 3px 7px; font-size: 12px; font-weight: 600; color: var(--red); background: var(--red-lt); text-align: right; outline: none; }
+.cart-discount-input:focus { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,59,48,.12); }
 
 .qty { display: flex; align-items: center; gap: 6px; margin-top: 7px; }
 .qty button {

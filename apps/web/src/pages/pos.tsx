@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Customer, type Product, type User } from '../api/client';
 
-type CartLine = { product: Product; quantity: number };
+type CartLine = { product: Product; quantity: number; discount: number };
 type PosView = 'catalog' | 'cart';
 type PaymentMode = 'full' | 'advance' | 'custom';
 
@@ -297,7 +297,7 @@ export function Pos({ user }: { user: User }) {
     category ? allProducts.filter(p => (p as any).product_type === category) : allProducts,
     [allProducts, category]);
 
-  const subtotal = useMemo(() => cart.reduce((s, l) => s + Number(l.product.selling_price) * l.quantity, 0), [cart]);
+  const subtotal = useMemo(() => cart.reduce((s, l) => s + (Number(l.product.selling_price) * l.quantity) - l.discount, 0), [cart]);
 
   const paid = useMemo(() => {
     if (paymentMode === 'full')    return subtotal;
@@ -314,7 +314,7 @@ export function Pos({ user }: { user: User }) {
       const found = c.find(x => x.product.id === product.id);
       return found
         ? c.map(x => x.product.id === product.id ? { ...x, quantity: Math.min(x.quantity + 1, x.product.stock) } : x)
-        : [...c, { product, quantity: 1 }];
+        : [...c, { product, quantity: 1, discount: 0 }];
     });
     setMobileView('cart');
   };
@@ -336,7 +336,7 @@ export function Pos({ user }: { user: User }) {
         {
           customerId: resolvedCustomer?.id,
           locationId: location,
-          items: cart.map(x => ({ variantId: x.product.id, quantity: x.quantity })),
+          items: cart.map(x => ({ variantId: x.product.id, quantity: x.quantity, discount: x.discount > 0 ? x.discount.toFixed(2) : undefined })),
           payments: paid > 0 ? [{ amount: paid.toFixed(2), method }] : [],
         },
         crypto.randomUUID() + crypto.randomUUID().replace('-', '')
@@ -464,8 +464,26 @@ export function Pos({ user }: { user: User }) {
                     <span>{line.quantity}</span>
                     <button onClick={() => setCart(c => c.map(x => x.product.id === line.product.id ? { ...x, quantity: Math.min(x.quantity + 1, x.product.stock) } : x))}>+</button>
                   </div>
+                  <div className="cart-discount-row">
+                    <span className="cart-discount-label">Disc ₹</span>
+                    <input
+                      className="cart-discount-input"
+                      type="number" min="0"
+                      max={Number(line.product.selling_price) * line.quantity}
+                      value={line.discount || ''}
+                      placeholder="0"
+                      inputMode="decimal"
+                      onChange={e => {
+                        const val = Math.max(0, Math.min(Number(e.target.value) || 0, Number(line.product.selling_price) * line.quantity));
+                        setCart(c => c.map(x => x.product.id === line.product.id ? { ...x, discount: val } : x));
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="cart-line-price">{rupees(Number(line.product.selling_price) * line.quantity)}</div>
+                <div className="cart-line-price">
+                  {line.discount > 0 && <span className="cart-original-price">{rupees(Number(line.product.selling_price) * line.quantity)}</span>}
+                  {rupees((Number(line.product.selling_price) * line.quantity) - line.discount)}
+                </div>
               </div>
             ))}
             {!cart.length && <div className="empty-cart"><p>Tap products to add them.</p></div>}
