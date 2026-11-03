@@ -26,10 +26,19 @@ export async function postSale(db: Db, actor: Actor, input: SaleInput, idempoten
     const missing = ids.filter(id => !found.has(id));
     throw new AppError(422, `Product not found or no longer available (ID: ${missing[0]?.slice(0,8)}…). Please refresh the product list.`, 'PRODUCT_UNAVAILABLE');
   }
-  await db.query(`INSERT INTO inventory_balances(variant_id,location_id,quantity) SELECT unnest($1::uuid[]),$2,0 ON CONFLICT DO NOTHING`, [ids,input.locationId]);
-  const balances = await db.query(`SELECT variant_id,quantity FROM inventory_balances WHERE location_id=$1 AND variant_id=ANY($2::uuid[]) FOR UPDATE`, [input.locationId,ids]); const quantities = new Map(balances.rows.map(row => [row.variant_id, row.quantity as number]));
+  // Use total stock across ALL locations — billing is generic (not location-gated)
+  const balances = await db.query(
+    `SELECT variant_id, COALESCE(SUM(quantity),0)::int AS quantity
+     FROM inventory_balances WHERE variant_id=ANY($1::uuid[]) GROUP BY variant_id FOR UPDATE`,
+    [ids]
+  );
+  const quantities = new Map(balances.rows.map((row: { variant_id: string; quantity: number }) => [row.variant_id, row.quantity]));
+
+  // Ensure a balance row exists for the invoice location (for movement tracking)
+  await db.query(`INSERT INTO inventory_balances(variant_id,location_id,quantity) SELECT unnest($1::uuid[]),$2,0 ON CONFLICT DO NOTHING`, [ids, input.locationId]);
+
   const byId = new Map(products.rows.map(row => [row.id, row])); let subtotal = 0n, discountTotal = 0n, taxTotal = 0n;
-  const lines = input.items.map(item => { const product = byId.get(item.variantId)!; const price = toPaise(product.selling_price); const discount = toPaise(item.discount ?? '0.00'); const gross = multiply(price,item.quantity); if (discount > gross) throw new AppError(422, `Discount exceeds price for ${product.sku}.`, 'INVALID_DISCOUNT'); const net = gross-discount; const lineTax = tax(net,product.tax_rate); if ((quantities.get(item.variantId) ?? 0) < item.quantity) throw new AppError(409, `${product.sku} has insufficient stock.`, 'INSUFFICIENT_STOCK'); subtotal += gross; discountTotal += discount; taxTotal += lineTax; return { ...item, product, price, discount, net, lineTax, total: net + lineTax }; });
+  const lines = input.items.map(item => { const product = byId.get(item.variantId)!; const price = toPaise(product.selling_price); const discount = toPaise(item.discount ?? '0.00'); const gross = multiply(price,item.quantity); if (discount > gross) throw new AppError(422, `Discount exceeds price for ${product.sku}.`, 'INVALID_DISCOUNT'); const net = gross-discount; const lineTax = tax(net,product.tax_rate); if ((quantities.get(item.variantId) ?? 0) < item.quantity) throw new AppError(409, `${product.sku} has insufficient stock (total: ${quantities.get(item.variantId) ?? 0}).`, 'INSUFFICIENT_STOCK'); subtotal += gross; discountTotal += discount; taxTotal += lineTax; return { ...item, product, price, discount, net, lineTax, total: net + lineTax }; });
   const grandTotal = subtotal-discountTotal+taxTotal; const paymentTotal = input.payments.reduce((total,payment) => total + toPaise(payment.amount),0n); if (paymentTotal > grandTotal) throw new AppError(422, 'Payments cannot exceed the invoice total. Use the refund workflow for excess amounts.', 'OVERPAYMENT');
   const amountDue = grandTotal-paymentTotal; const paymentStatus = paymentTotal === 0n ? 'UNPAID' : amountDue === 0n ? 'PAID' : 'PARTIALLY_PAID';
   const orgId = '11111111-0000-0000-0000-000000000001';
@@ -53,7 +62,16 @@ export async function postSale(db: Db, actor: Actor, input: SaleInput, idempoten
   const empInitial = (actor.displayName || actor.loginName || 'X')[0].toUpperCase();
   const invoiceNumber = `${empInitial}-${locShort}-${dd}${mon}-${hh}${mm}${ss}-${String(sequence.rows[0].last_value).padStart(3,'0')}`;
   const invoice = await db.query(`INSERT INTO invoices(invoice_number,customer_id,payment_status,subtotal,discount_total,tax_total,grand_total,amount_paid,amount_due,cashier_id,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`, [invoiceNumber,input.customerId ?? null,paymentStatus,fromPaise(subtotal),fromPaise(discountTotal),fromPaise(taxTotal),fromPaise(grandTotal),fromPaise(paymentTotal),fromPaise(amountDue),actor.id,idempotencyKey]); const invoiceId = invoice.rows[0].id as string;
-  for (const line of lines) { const description = [line.product.name,line.product.variant,line.product.color].filter(Boolean).join(' · '); await db.query(`INSERT INTO invoice_items(invoice_id,variant_id,sku_snapshot,description_snapshot,quantity,unit_price,discount_amount,tax_rate,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[invoiceId,line.variantId,line.product.sku,description,line.quantity,fromPaise(line.price),fromPaise(line.discount),line.product.tax_rate,fromPaise(line.total)]); const before = quantities.get(line.variantId)!; const after = before-line.quantity; await db.query('UPDATE inventory_balances SET quantity=$1,updated_at=now() WHERE variant_id=$2 AND location_id=$3',[after,line.variantId,input.locationId]); await db.query(`INSERT INTO inventory_movements(variant_id,location_id,movement_type,quantity_delta,quantity_before,quantity_after,reference_type,reference_id,performed_by) VALUES($1,$2,'SALE',$3,$4,$5,'INVOICE',$6,$7)`,[line.variantId,input.locationId,-line.quantity,before,after,invoiceId,actor.id]); }
+  for (const line of lines) { const description = [line.product.name,line.product.variant,line.product.color].filter(Boolean).join(' · '); await db.query(`INSERT INTO invoice_items(invoice_id,variant_id,sku_snapshot,description_snapshot,quantity,unit_price,discount_amount,tax_rate,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[invoiceId,line.variantId,line.product.sku,description,line.quantity,fromPaise(line.price),fromPaise(line.discount),line.product.tax_rate,fromPaise(line.total)]); const before = quantities.get(line.variantId)!; const after = before-line.quantity; // Deduct from whichever location has the stock (generic billing)
+    await db.query(
+      `UPDATE inventory_balances SET quantity=quantity-$1,updated_at=now()
+       WHERE variant_id=$2 AND location_id=(
+         SELECT location_id FROM inventory_balances
+         WHERE variant_id=$2 AND quantity>0
+         ORDER BY quantity DESC LIMIT 1
+       )`,
+      [line.quantity, line.variantId]
+    ); await db.query(`INSERT INTO inventory_movements(variant_id,location_id,movement_type,quantity_delta,quantity_before,quantity_after,reference_type,reference_id,performed_by) VALUES($1,$2,'SALE',$3,$4,$5,'INVOICE',$6,$7)`,[line.variantId,input.locationId,-line.quantity,before,after,invoiceId,actor.id]); }
   // Store payment method on the invoice row for reporting
   const paymentMethod = input.payments.length > 0 ? input.payments[0].method : null;
   if (paymentMethod) {
