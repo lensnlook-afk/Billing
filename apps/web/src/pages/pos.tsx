@@ -283,15 +283,15 @@ export function Pos({ user }: { user: User }) {
       setLocations(x.data);
       const loc = x.data[0]?.id ?? '';
       setLocation(loc);
-      api.products('', loc).then(p => setAllProducts(p.data));
+      api.products().then(p => setAllProducts(p.data));
     });
   }, []);
 
   useEffect(() => {
     if (!location) return;
-    const id = setTimeout(() => api.products(query, location).then(x => setAllProducts(x.data)).catch(() => undefined), 250);
+    const id = setTimeout(() => api.products(query).then(x => setAllProducts(x.data)).catch(() => undefined), 250);
     return () => clearTimeout(id);
-  }, [query, location]);
+  }, [query]);
 
   const products = useMemo(() =>
     category ? allProducts.filter(p => (p as any).product_type === category) : allProducts,
@@ -358,7 +358,7 @@ export function Pos({ user }: { user: User }) {
       setCart([]); setCustomAmount(''); setCustomer(null); setCustomerForm(null);
       setPaymentMode('full'); setMobileView('catalog');
       // Refresh product stock for this location after sale
-      api.products('', location).then(x => setAllProducts(x.data)).catch(() => undefined);
+      api.products().then(x => setAllProducts(x.data)).catch(() => undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post invoice');
     } finally {
@@ -432,7 +432,7 @@ export function Pos({ user }: { user: User }) {
                     const loc = e.target.value;
                     setLocation(loc);
                     setCart([]);
-                    api.products('', loc).then(p => setAllProducts(p.data));
+                    api.products().then(p => setAllProducts(p.data));
                   }}
                 >
                   {locations.map(l => (
